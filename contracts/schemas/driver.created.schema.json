@@ -4,7 +4,7 @@
   "title": "driver.created",
   "description": "Primeiro evento do ciclo de vida de um entregador: o cadastro passou a existir no Portal. Trafega pela bulk-lane (`drivers.profile.v1`), porque um entregador recém-criado ainda não está apto a operar — a aptidão vem de uma transição de status posterior, que viaja pelo fast-lane.",
   "allOf": [
-    { "$ref": "https://schemas.magalu.com.br/logistica/driver-sync/v1/envelope.schema.json" },
+    { "$ref": "envelope.schema.json" },
     {
       "type": "object",
       "properties": {
@@ -24,7 +24,7 @@
       "additionalProperties": false,
       "properties": {
         "driver": {
-          "$ref": "https://schemas.magalu.com.br/logistica/driver-sync/v1/driver-state.schema.json"
+          "$ref": "driver-state.schema.json"
         }
       }
     }

@@ -32,3 +32,6 @@ Gemfile.lock.bak
 # Harness
 /harness/vendor/
 /harness/.bundle/
+
+# Dependências de validação de contrato (Node)
+/contracts/node_modules/

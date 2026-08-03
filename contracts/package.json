@@ -1,0 +1,13 @@
+{
+  "name": "driver-sync-contracts",
+  "private": true,
+  "type": "module",
+  "description": "Validação dos contratos contra as especificações oficiais AsyncAPI e OpenAPI. Node é usado só aqui — o harness de corretude é Ruby e não depende disto.",
+  "scripts": {
+    "validate": "node validate.mjs"
+  },
+  "devDependencies": {
+    "@apidevtools/swagger-parser": "^10.1.0",
+    "@asyncapi/parser": "^3.4.0"
+  }
+}
