@@ -305,6 +305,36 @@
     "pending": false
   },
   {
+    "file": "./spec/unit/consumer_spec.rb",
+    "name": "UltraSync::Consumer — validação e elegibilidade reavaliação de elegibilidade NÃO emite decisão em duplicata nem em evento stale",
+    "pending": false
+  },
+  {
+    "file": "./spec/unit/consumer_spec.rb",
+    "name": "UltraSync::Consumer — validação e elegibilidade reavaliação de elegibilidade a decisão reflete a política da Ultra-rápida, não o status do Portal",
+    "pending": false
+  },
+  {
+    "file": "./spec/unit/consumer_spec.rb",
+    "name": "UltraSync::Consumer — validação e elegibilidade reavaliação de elegibilidade emite decisão quando a projeção avança",
+    "pending": false
+  },
+  {
+    "file": "./spec/unit/consumer_spec.rb",
+    "name": "UltraSync::Consumer — validação e elegibilidade validação contra o contrato aceita payload válido",
+    "pending": false
+  },
+  {
+    "file": "./spec/unit/consumer_spec.rb",
+    "name": "UltraSync::Consumer — validação e elegibilidade validação contra o contrato distingue tipo desconhecido de payload inválido",
+    "pending": false
+  },
+  {
+    "file": "./spec/unit/consumer_spec.rb",
+    "name": "UltraSync::Consumer — validação e elegibilidade validação contra o contrato rejeita payload que viola o schema, com o código correto",
+    "pending": false
+  },
+  {
     "file": "./spec/unit/outbox_spec.rb",
     "name": "UltraSync::Outbox atomicidade estado e evento nascem juntos",
     "pending": false

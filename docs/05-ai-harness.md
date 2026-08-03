@@ -45,7 +45,7 @@ source_version nunca decresce             monotonicidade
 N réplicas convergem                      convergência
 ```
 
-**60 invariantes**, em `harness/spec/properties/` e `harness/spec/concurrency/`.
+**76 invariantes**, em `harness/spec/properties/` e `harness/spec/concurrency/`.
 
 O gerador e o encolhedor são próprios, sem gem externa. A razão é encolhimento, não dependências: bibliotecas genéricas minimizam bem valores escalares e mal sequências de eventos de domínio — o contraexemplo que produzem costuma violar invariantes da fonte e não diagnostica nada.
 
@@ -167,6 +167,22 @@ A separação por velocidade é deliberada. Um CI que leva quinze minutos para d
 | Desativar os próprios guardrails | L6 — meta-testes + CODEOWNERS |
 | Regenerar goldens para casar com o novo | CODEOWNERS — revisão humana |
 
+## O buraco que a revisão encontrou nos próprios guardrails
+
+Uma revisão adversarial deste repositório encontrou nove problemas, e a maioria compartilhava a mesma forma: **o documento afirmava o que o código não fazia**.
+
+- A segurança prometia um código de dead letter para assinatura inválida que não existia no contrato.
+- Prometia `bundler-audit` no CI, que não existia.
+- Prometia imagens fixadas por digest, que estavam por tag.
+- O contrato declarava `schema_validation_failed`, e nada validava payload no consumo — código de falha inalcançável.
+- A justificativa para o applier devolver desfecho em vez de booleano apoiava-se num efeito colateral (reavaliação de elegibilidade) que não estava implementado.
+
+Nenhum dos seis níveis acima pega isso, e a razão é estrutural: **todos verificam código contra código**. Nenhum lê a prosa.
+
+Isso é uma limitação real da abordagem, não um descuido pontual. Documentação é onde a intenção mora, e é justamente o artefato que os guardrails automatizados não alcançam. Duas mitigações parciais foram acrescentadas — o spec de números documentados e o de códigos de falha alcançáveis — mas ambas cobrem afirmações *estruturadas*. Uma frase em prosa dizendo que algo é feito continua fora de alcance.
+
+Registrar isso importa mais que corrigir os seis casos: quem herdar este repositório precisa saber que a camada detectiva tem esse limite.
+
 ## O que este desenho não resolve
 
 Declarado, porque proteção sem limites declarados não foi levada a sério:
@@ -174,6 +190,7 @@ Declarado, porque proteção sem limites declarados não foi levada a sério:
 - **Agente que escreve código correto para o problema errado.** Nenhum guardrail aqui detecta requisito mal entendido. Isso continua sendo revisão humana.
 - **Invariante que ninguém pensou em escrever.** As propriedades cobrem o que se sabia cobrir. Mutação reduz o ponto cego, não o elimina — como as duas histórias da L4 mostram, ele existia.
 - **Erosão lenta.** Um agente que degrada a qualidade em incrementos que passam individualmente pelo CI não é detectado por nada aqui.
+- **Documentação que descreve o que o código não faz.** Ver a seção acima — é o vetor que a revisão adversarial mais encontrou, e o que os guardrails automatizados menos alcançam.
 
 ## Relacionadas
 

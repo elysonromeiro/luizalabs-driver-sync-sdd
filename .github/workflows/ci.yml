@@ -42,6 +42,14 @@ jobs:
       - name: Suíte sem dependências externas
         working-directory: harness
         run: bundle exec rspec --tag ~pg --tag ~kafka
+      # docs/04-seguranca.md promete esta verificação. Estava só na prosa até
+      # a revisão — promessa de segurança não cumprida é pior que ausente,
+      # porque quem lê acredita que existe.
+      - name: Vulnerabilidades conhecidas nas dependências
+        working-directory: harness
+        run: |
+          gem install bundler-audit --no-document
+          bundle-audit check --update
 
   # --------------------------------------------------------------------
   # Spec-driven: o código não pode divergir do contrato.
@@ -80,7 +88,7 @@ jobs:
     timeout-minutes: 15
     services:
       postgres:
-        image: postgres:16
+        image: postgres@sha256:5d143123fdf80462d1778cd4f24b9f7ca13c87174bca19141fb194c5a1ebca59
         env:
           POSTGRES_USER: ultra
           POSTGRES_PASSWORD: ultra

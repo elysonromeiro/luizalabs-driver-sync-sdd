@@ -5,6 +5,7 @@ require "concurrent"
 
 require_relative "ultra_sync/generated/driver_state"
 require_relative "ultra_sync/event"
+require_relative "ultra_sync/schema_validator"
 require_relative "ultra_sync/store/memory"
 require_relative "ultra_sync/event_applier"
 require_relative "ultra_sync/backoff"
