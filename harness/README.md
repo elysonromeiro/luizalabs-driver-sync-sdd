@@ -25,9 +25,8 @@ bundle exec rspec --tag pg
 
 | Modo | Exemplos | Tempo |
 |---|---|---|
-| Sem Docker | 63 | ~0,7 s |
-| Com Postgres | 77 | ~2,5 s |
-| Com Postgres e Kafka | 84 | ~13 s |
+| Sem Docker | 111 | ~2 s |
+| Com Postgres e Kafka | 137 | ~14 s |
 
 ## O que cada camada prova
 
@@ -39,6 +38,7 @@ bundle exec rspec --tag pg
 | `spec/golden` | Regressão caso a caso das regras de despacho |
 | `spec/messaging` | Backpressure e compaction contra Kafka real |
 | `spec/contracts` | Conformidade nas duas direções com os schemas |
+| `spec/reconciliation` | Checksum por faixa e paridade entre SQL e Ruby |
 
 ### Propriedades, não exemplos
 
@@ -98,6 +98,20 @@ bin/generate --check   # falha se o arquivo em disco divergir do contrato
 ```
 
 Editar o arquivo gerado à mão faz o CI falhar apontando a linha divergente. É o que transforma "a spec é a fonte da verdade" em portão de build.
+
+### Guardrails
+
+```bash
+bin/generate --check    # código gerado em dia com o contrato
+bin/schema_compat       # compatibilidade BACKWARD
+bin/test_inventory --check  # nenhuma invariante removida ou desabilitada
+bin/coupled_change      # mudança crítica exige mudança em spec/
+bin/mutate              # 12 mutações, todas precisam morrer
+bin/sabotage            # 6 violações deliberadas, todas barradas
+bin/check_docs          # links da documentação
+```
+
+`bin/sabotage` é o mais direto de conferir: executa seis violações reais, mostra a saída de cada barreira e reverte tudo ao fim, inclusive sob Ctrl-C.
 
 ## Paths protegidos
 

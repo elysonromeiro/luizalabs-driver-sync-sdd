@@ -1,18 +1,89 @@
 # Motor de Sincronização de Entregadores
 
-**System Design Document** — Desafio Técnico LuizaLabs / Magalu, Logística Ultra Rápida.
+**System Design Document** — Desafio Técnico LuizaLabs / Magalu, Logística Ultra Rápida
+Candidatura ao nível **Especialista / Staff Engineer**
 
-Este documento descreve a arquitetura de um motor de sincronização que propaga o ciclo de vida de entregadores do **Portal dos Entregadores** para a **Ultra-rápida** e, por construção, para qualquer outra plataforma do ecossistema Magalu que venha a consumir o mesmo fluxo.
+Arquitetura de um motor que propaga o ciclo de vida de entregadores do **Portal dos Entregadores** para a **Ultra-rápida** e, por construção, para qualquer outra plataforma do ecossistema Magalu que venha a consumir o mesmo fluxo.
+
+---
+
+## Sumário executivo
+
+O sistema se apoia em cinco decisões encadeadas. A ordem importa: cada uma só é segura por causa da anterior.
+
+```mermaid
+flowchart LR
+    A["<b>Estado completo</b><br/>evento carrega o<br/>entregador inteiro"]
+    B["<b>Versão monotônica</b><br/>ordem lógica em<br/>um predicado SQL"]
+    C["<b>Escrita condicional</b><br/>sem lock,<br/>sem lost update"]
+    D["<b>Canais por criticidade</b><br/>ativação não espera<br/>backlog de perfil"]
+    E["<b>Snapshot compactado</b><br/>fan-out sem custo<br/>para a fonte"]
+
+    A -->|habilita| B
+    B -->|habilita| C
+    A -->|habilita| D
+    B -->|habilita| D
+    A -->|habilita| E
+
+    style A fill:#e8f0fe,stroke:#4285f4,stroke-width:2px
+    style D fill:#e6f4ea,stroke:#34a853,stroke-width:2px
+```
+
+**1. Eventos carregam estado completo, nunca delta.** Delta exigiria ordem de entrega para produzir estado correto — a única garantia que um pipeline distribuído não dá. Com estado completo, aplicar um evento é atribuição idempotente. ([ADR-013](docs/adr/013-estado-completo-vs-delta.md))
+
+**2. A ordem vem de contador monotônico, não de relógio.** `UPDATE ... WHERE source_version < :sequence`. Zero linhas afetadas significa evento velho; descarta. Reordenação deixa de ser problema de infraestrutura e vira um predicado. ([ADR-003](docs/adr/003-ordenacao-por-versao.md))
+
+**3. A escrita é condicional, sem lock pessimista.** O predicado vive no `WHERE`, então não existe janela entre decidir e escrever. Nas 20 permutações possíveis de dois consumidores concorrentes, **9 perdem a atualização** com read-modify-write ingênuo e **nenhuma** com escrita condicional. ([ADR-004](docs/adr/004-locking.md))
+
+**4. Canais separados por criticidade, não por entidade.** É o que responde à pergunta mais difícil do enunciado: após 2 h de indisponibilidade, a ativação de um entregador drena em segundos em vez de ficar atrás de horas de atualização de perfil. Decisão de topologia, não ajuste de incidente. ([ADR-005](docs/adr/005-fast-lane.md))
+
+**5. Sob degradação, o consumo pausa em vez de falhar rápido.** O log do broker já é a fila durável; despejar o backlog na DLQ trocaria um problema temporário por trabalho permanente de reconciliação, gerado no pior momento. ([ADR-008](docs/adr/008-backpressure.md))
+
+### O que distingue esta entrega
+
+**As invariantes são executáveis.** Idempotência, comutatividade, monotonicidade e convergência não são afirmadas — são propriedades verificadas sobre qualquer sequência gerada. São **60 invariantes** na suíte.
+
+**Os guardrails foram sabotados de propósito.** `bin/sabotage` executa seis violações deliberadas e mostra a saída real de cada barreira. Qualquer avaliador clona e confere.
+
+**Os números vieram de execução, não de estimativa.** Cada afirmação quantitativa deste documento foi medida contra Postgres 16 e Kafka reais.
+
+---
+
+## Como verificar
+
+```bash
+git clone https://github.com/elysonromeiro/luizalabs-driver-sync-sdd
+cd luizalabs-driver-sync-sdd/harness && bundle install
+
+bundle exec rspec        # 111 exemplos, sem nenhuma dependência externa
+```
+
+Com Docker, acrescenta concorrência real e mensageria:
+
+```bash
+docker compose up -d             # postgres:16 + kafka
+cd harness && bundle exec rspec  # 137 exemplos
+bin/sabotage                     # 6 violações deliberadas
+bin/mutate                       # 12 mutações
+```
+
+| Verificação | Resultado |
+|---|---|
+| Suíte completa | **137 exemplos, 0 falhas** |
+| Invariantes | **60** |
+| Mutações mortas | **12 / 12** |
+| Sabotagens barradas | **6 / 6** |
+| Links da documentação | **177, nenhum quebrado** |
 
 ---
 
 ## 1. Contexto
 
-A operação de entrega Ultra Rápida executa e acompanha entregas de última milha (*last mile*) em todo o Brasil. Dois sistemas sustentam essa operação:
+A operação de entrega Ultra Rápida executa e acompanha entregas de última milha (*last mile*) em todo o Brasil. Dois sistemas a sustentam:
 
 | Sistema | Papel |
 |---|---|
-| **Portal dos Entregadores** | *System of Record*. Detém a verdade sobre o entregador: cadastro, manutenção de dados, gestão documental e o processo de aprovação que determina quem está apto a operar. |
+| **Portal dos Entregadores** | *System of Record*. Detém a verdade sobre o entregador: cadastro, manutenção dos dados, gestão documental e o processo de aprovação que determina quem está apto a operar. |
 | **Ultra-rápida** | Engine logística que conecta entregadores e clientes dos segmentos *goods* e *food*. Consome os dados do Portal para decidir quem pode receber ofertas de corrida. |
 
 O Portal detém o dado atualizado. A Ultra-rápida precisa dele quase em tempo real — sem o dado corrente, o entregador não recebe oferta, e um entregador bloqueado por segurança continuaria recebendo.
@@ -24,7 +95,7 @@ O Portal detém o dado atualizado. A Ultra-rápida precisa dele quase em tempo r
 Sincronizar o ciclo de vida do entregador entre os dois sistemas, respeitando três tensões que puxam em direções opostas:
 
 1. **Latência versus consistência.** O dado precisa chegar rápido, mas nunca corrompido por reprocessamento ou reordenação.
-2. **Acoplamento versus autonomia.** A Ultra-rápida tem critérios de elegibilidade *mais restritivos* que o Portal — por exemplo, o Portal aceita entregador pessoa física e a Ultra-rápida não. Essa divergência é legítima e não pode vazar para a fonte.
+2. **Acoplamento versus autonomia.** A Ultra-rápida tem critérios de elegibilidade *mais restritivos* que o Portal — o Portal aceita entregador pessoa física e a Ultra-rápida não. Essa divergência é legítima e não pode vazar para a fonte.
 3. **Especificidade versus generalidade.** A solução atende a Ultra-rápida hoje, mas precisa nascer agnóstica: outras plataformas do ecossistema devem consumir o mesmo fluxo sem reescrita da arquitetura core.
 
 ### Requisitos e restrições
@@ -42,40 +113,35 @@ Sincronizar o ciclo de vida do entregador entre os dois sistemas, respeitando tr
 
 ---
 
-## 3. Estrutura deste documento
+## 3. Estrutura do documento
 
-| Pilar | Documento | Estado |
+### Por onde começar
+
+| Se você quer… | Leia |
+|---|---|
+| Entender a arquitetura em cinco minutos | O sumário executivo acima, depois [01-arquitetura](docs/01-arquitetura.md) |
+| Avaliar profundidade técnica | [02-concorrencia](docs/02-concorrencia.md) e [ADR-004](docs/adr/004-locking.md) |
+| Avaliar a resposta ao Pilar 3 | [05-ai-harness](docs/05-ai-harness.md) e [07-repo-ai-native](docs/07-repo-ai-native.md) |
+| Avaliar a Seção Especialista | [06-especialista](docs/06-especialista.md) |
+| Ver funcionando | [`harness/README.md`](harness/README.md) |
+
+### Documentos
+
+| Pilar | Documento | Conteúdo |
 |---|---|---|
-| 1 — Arquitetura e fluxo de dados | [`docs/01-arquitetura.md`](docs/01-arquitetura.md) | **pronto** |
-| 1 — Concorrência e idempotência | [`docs/02-concorrencia.md`](docs/02-concorrencia.md) | **pronto** |
-| 1 — Resiliência e tolerância a falhas | [`docs/03-resiliencia.md`](docs/03-resiliencia.md) | **pronto** |
-| 1 — Segurança e dados sensíveis | [`docs/04-seguranca.md`](docs/04-seguranca.md) | **pronto** |
-| 2 — Contratos de eventos | [`contracts/`](contracts/README.md) | **pronto** |
-| 3 — Harness executável | [`harness/`](harness/README.md) | **pronto** |
-| 3 — AI harness e guardrails | [`docs/05-ai-harness.md`](docs/05-ai-harness.md) | **pronto** |
-| 3 — Repositório AI-native | [`docs/07-repo-ai-native.md`](docs/07-repo-ai-native.md) | **pronto** |
-| Especialista | [`docs/06-especialista.md`](docs/06-especialista.md) | **pronto** |
-
-### Rodando o harness
-
-As invariantes deste documento são executáveis. Sem Docker:
-
-```bash
-cd harness && bundle install && bundle exec rspec
-# 63 examples, 0 failures
-```
-
-Com Postgres real, que acrescenta lost update, isolamento, deadlock e contagem de queries:
-
-```bash
-docker compose up -d
-cd harness && bundle exec rspec
-# 77 examples, 0 failures
-```
+| 1 | [01-arquitetura](docs/01-arquitetura.md) | Componentes, C4 e sequências — caminho feliz, evento stale, duplicata, degradação |
+| 1 | [02-concorrencia](docs/02-concorrencia.md) | Caminho de escrita, dedupe, lost update, N+1 no Rails |
+| 1 | [03-resiliencia](docs/03-resiliencia.md) | Backoff com jitter, circuit breaker, matriz de indisponibilidade, alertas |
+| 1 | [04-seguranca](docs/04-seguranca.md) | Modelo de ameaça, mTLS e ACLs, evento forjado, replay, PII |
+| 2 | [`contracts/`](contracts/README.md) | AsyncAPI 3.0, OpenAPI 3.0.3, JSON Schemas, política de compatibilidade |
+| 3 | [05-ai-harness](docs/05-ai-harness.md) | Três camadas de defesa; L1–L6 da camada detectiva |
+| 3 | [07-repo-ai-native](docs/07-repo-ai-native.md) | Camada preventiva: `CLAUDE.md`, hooks, subagents, sabotagem |
+| Especialista | [06-especialista](docs/06-especialista.md) | Fan-out, DR na Black Friday, reconciliação, governança |
+| — | [`harness/`](harness/README.md) | Harness executável |
 
 ### Decisões arquiteturais
 
-Cada decisão fica registrada como ADR, com as alternativas que foram descartadas e o motivo.
+Cada uma com as alternativas descartadas e o motivo.
 
 | ADR | Decisão |
 |---|---|
@@ -93,18 +159,57 @@ Cada decisão fica registrada como ADR, com as alternativas que foram descartada
 | [012](docs/adr/012-arquitetura-multiagente.md) | Separação de poderes entre agentes de IA |
 | [013](docs/adr/013-estado-completo-vs-delta.md) | Eventos carregam estado completo, não delta |
 
+> A ADR-013 está fora de ordem porque foi decidida durante a modelagem dos contratos, depois que 001–012 já estavam planejadas. Renumerar quebraria referências já mergeadas, e o histórico do repositório é parte da entrega.
+
 ---
 
-## 4. Convenções do repositório
+## 4. Cobertura do enunciado
+
+| Requisito | Onde | Executável? |
+|---|---|---|
+| **Pilar 1** — Diagrama de arquitetura | [01-arquitetura](docs/01-arquitetura.md) — seis diagramas | — |
+| **Pilar 1** — Out-of-order events | [ADR-003](docs/adr/003-ordenacao-por-versao.md) | propriedade de comutatividade |
+| **Pilar 1** — Optimistic vs pessimistic locking | [ADR-004](docs/adr/004-locking.md) | quatro estratégias contra Postgres real |
+| **Pilar 1** — Deduplicação | [02-concorrencia](docs/02-concorrencia.md) | propriedade de idempotência |
+| **Pilar 1** — Prevenção de N+1 no Rails | [02-concorrencia](docs/02-concorrencia.md) | contagem de queries constante |
+| **Pilar 1** — Exponential backoff | [03-resiliencia](docs/03-resiliencia.md) | `Backoff` com full jitter |
+| **Pilar 1** — Circuit breaker | [ADR-008](docs/adr/008-backpressure.md) | pause/resume contra Kafka real |
+| **Pilar 2** — AsyncAPI / OpenAPI | [`contracts/`](contracts/README.md) | conformidade nas duas direções |
+| **Pilar 2** — `driver.created` | [schema](contracts/schemas/driver.created.schema.json) | exemplo validado |
+| **Pilar 2** — `driver.updated` | [schema](contracts/schemas/driver.updated.schema.json) | exemplo validado |
+| **Pilar 2** — `driver.status_changed` | [schema](contracts/schemas/driver.status_changed.schema.json) | exemplo validado |
+| **Pilar 3** — Harness no CI | [05-ai-harness](docs/05-ai-harness.md) | seis jobs em duas velocidades |
+| **Pilar 3** — Testes de propriedade | [`spec/properties/`](harness/spec/properties) | 60 invariantes |
+| **Pilar 3** — Impedir alteração de regra de despacho | [golden](harness/spec/golden/dispatch_cases.json) + [CODEOWNERS](.github/CODEOWNERS) | 18 casos congelados |
+| **Pilar 3** — Impedir corrupção de idempotência | propriedades + mutação | sabotagem 2 |
+| **Pilar 3** — Impedir race condition | [02-concorrencia](docs/02-concorrencia.md) | 20 entrelaçamentos enumerados |
+| **Especialista** — Fan-out para N consumidores | [06-especialista](docs/06-especialista.md) | zero queries no bootstrap |
+| **Especialista** — DR de 2 h na Black Friday | [06-especialista](docs/06-especialista.md) | fast-lane verificado |
+| **Especialista** — Reconciliação e catch-up | [ADR-010](docs/adr/010-reconciliacao-por-checksum.md) | paridade SQL × Ruby |
+| **Especialista** — Governança de dados | [06-especialista](docs/06-especialista.md) | `bin/schema_compat` |
+| **Segurança** | [04-seguranca](docs/04-seguranca.md) | — |
+
+### O que este desenho não resolve
+
+Declarado porque solução sem limites declarados não foi levada a sério:
+
+- **Insider com acesso legítimo ao Portal** pode aprovar quem não deveria. É segregação de funções na fonte, fora do escopo deste motor.
+- **Comprometimento do KMS** derruba tokenização e crypto-shredding juntos. É a dependência de confiança única do desenho.
+- **Agente de IA que escreve código correto para o requisito errado.** Nenhum guardrail aqui detecta requisito mal entendido.
+- **Erosão lenta** — degradação em incrementos que passam individualmente pelo CI.
+- **Adequação jurídica do apagamento por destruição de chave** exige validação do DPO.
+
+---
+
+## 5. Convenções do repositório
 
 - **Documentação em português**; histórico do Git em inglês, no padrão [Conventional Commits](https://www.conventionalcommits.org/).
-- `main` é a branch principal. Cada fase de trabalho entra por uma branch `feature/*` e um Pull Request.
+- `main` é a branch principal. Cada fase de trabalho entrou por uma branch `feature/*` e um Pull Request.
 - Diagramas em [Mermaid](https://mermaid.js.org/), renderizados nativamente pelo GitHub.
+- O repositório é **AI-native por construção**: [`CLAUDE.md`](CLAUDE.md) é o contrato com agentes, e `.claude/` contém hooks, subagents e skills versionados.
 
 O enunciado original do desafio não é redistribuído aqui; o contexto e os requisitos acima o reproduzem no que é necessário para acompanhar o documento.
 
 ---
 
-## Autor
-
-Elyson Romeiro — candidatura ao nível **Especialista / Staff Engineer**.
+**Elyson Romeiro** — [github.com/elysonromeiro](https://github.com/elysonromeiro)
