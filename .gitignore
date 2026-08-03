@@ -1,0 +1,30 @@
+# Enunciado original do desafio — não redistribuído neste repositório público
+Desafio_Tecnico_*.pdf
+
+# Ruby
+*.gem
+*.rbc
+/.bundle/
+/vendor/bundle/
+/harness/.bundle/
+/harness/vendor/
+/harness/tmp/
+/harness/coverage/
+/harness/.rspec_status
+Gemfile.lock.bak
+
+# Mutação — artefatos temporários do bin/mutate
+/harness/tmp/mutants/
+
+# Ambiente
+.env
+.env.local
+*.pid
+*.log
+
+# Editores
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store
