@@ -76,6 +76,26 @@ def flatten(node, path = "", required_here = [], acc = {})
   acc
 end
 
+# Percorre o documento procurando `required` que nomeie campo inexistente em
+# `properties` no mesmo nível.
+def dangling_required(node, location = "raiz", found = [])
+  return found unless node.is_a?(Hash)
+
+  if node["required"].is_a?(Array)
+    declared = (node["properties"] || {}).keys
+    (node["required"] - declared).each { |name| found << [name, location] }
+  end
+
+  node.each do |key, value|
+    case value
+    when Hash  then dangling_required(value, key == "$defs" ? location : "#{location}/#{key}", found)
+    when Array then value.each_with_index { |v, i| dangling_required(v, "#{location}/#{key}[#{i}]", found) }
+    end
+  end
+
+  found
+end
+
 _, ok = git("rev-parse", "--verify", BASE)
 unless ok
   puts "schema_compat: referência #{BASE} não existe neste clone — nada a comparar."
@@ -97,8 +117,20 @@ schemas.each do |path|
   end
 
   compared += 1
+  new_doc    = JSON.parse(File.read(path))
   old_fields = flatten(JSON.parse(old_source))
-  new_fields = flatten(JSON.parse(File.read(path)))
+  new_fields = flatten(new_doc)
+
+  # 0. Nome em `required` sem propriedade correspondente.
+  #
+  # Schema malformado, e o modo de falha é traiçoeiro: o campo passa a ser
+  # exigido sem nunca ter sido declarado, então nenhum produtor consegue
+  # satisfazê-lo e todo payload é rejeitado. Foi encontrado por bin/sabotage —
+  # a versão anterior deste script só olhava o que existia em `properties` e
+  # atravessava exatamente este caso.
+  dangling_required(new_doc).each do |name, location|
+    violations << [relative, "campo em `required` sem propriedade declarada: #{name} (em #{location})"]
+  end
 
   # 1. Campo removido — consumidor que o lê para de encontrá-lo.
   (old_fields.keys - new_fields.keys).each do |field|

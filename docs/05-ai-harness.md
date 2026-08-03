@@ -28,7 +28,7 @@ Uma instrução em prompt é uma sugestão. Um hook que bloqueia a escrita, um t
 
 A maioria das submissões cobre só a do meio. A preventiva é a mais barata — um hook que bloqueia edição de `spec/properties/` custa dez linhas de JSON e age antes de qualquer token ser escrito, enquanto o mesmo guardrail no CI só descobre o problema minutos depois, com contexto já perdido.
 
-A camada preventiva está detalhada em `docs/07-repo-ai-native.md`. Este documento cobre a detectiva.
+A camada preventiva está detalhada em [07-repo-ai-native.md](07-repo-ai-native.md). Este documento cobre a detectiva.
 
 ---
 
@@ -177,6 +177,6 @@ Declarado, porque proteção sem limites declarados não foi levada a sério:
 
 ## Relacionadas
 
-- `docs/07-repo-ai-native.md` — camada preventiva
+- [07-repo-ai-native.md](07-repo-ai-native.md) — camada preventiva
 - [02-concorrencia.md](02-concorrencia.md) — as invariantes
 - [`harness/README.md`](../harness/README.md) — como rodar

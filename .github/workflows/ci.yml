@@ -180,3 +180,6 @@ jobs:
       - name: Documentação sem link quebrado
         working-directory: harness
         run: bin/check_docs
+      - name: Roteiro de sabotagem — toda violação precisa ser barrada
+        working-directory: harness
+        run: bin/sabotage
