@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.magalu.com.br/logistica/driver-sync/v1/dead-letter.schema.json",
+  "title": "Dead letter",
+  "description": "Envelope de um evento que o consumidor não conseguiu processar e não conseguirá processar em retentativa. A DLQ deste sistema é reservada a falhas PERMANENTES do payload — schema inválido, tipo desconhecido, referência que nunca resolverá. Indisponibilidade de dependência NÃO produz dead letter: nesse caso o circuit breaker pausa o consumer group e o log do broker segura a fila, preservando ordem e evitando trabalho de replay. Ver ADR-008. Consequência operacional: mensagem nova na DLQ é sempre defeito de contrato ou de código, nunca ruído de infraestrutura — o que a torna alertável sem falso positivo.",
+  "type": "object",
+  "required": ["dead_lettered_at", "consumer", "failure", "original_event"],
+  "additionalProperties": false,
+  "properties": {
+    "dead_lettered_at": {
+      "description": "Instante em que a mensagem foi descartada para a DLQ, RFC 3339 em UTC.",
+      "type": "string",
+      "format": "date-time"
+    },
+    "consumer": {
+      "description": "Consumer group que falhou. Identifica o dono da investigação num cenário de fan-out com N consumidores.",
+      "type": "string",
+      "examples": ["ultra-rapida.driver-sync"]
+    },
+    "failure": {
+      "$ref": "#/$defs/Failure"
+    },
+    "original_event": {
+      "description": "Mensagem original, preservada byte a byte quando possível. Se o payload sequer for JSON decodificável, `original_event_raw` carrega a forma bruta e este campo é omitido.",
+      "type": "object"
+    },
+    "original_event_raw": {
+      "description": "Payload original em base64, usado quando a mensagem não é JSON válido e portanto não cabe em `original_event`.",
+      "type": "string",
+      "contentEncoding": "base64"
+    }
+  },
+  "$defs": {
+    "Failure": {
+      "type": "object",
+      "required": ["code", "message", "attempts"],
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "description": "Taxonomia fechada da causa. Toda entrada é permanente por definição — não existe código para falha transitória, e essa ausência é intencional.",
+          "enum": [
+            "schema_validation_failed",
+            "malformed_payload",
+            "unknown_event_type",
+            "unsupported_schema_version",
+            "missing_required_reference",
+            "policy_evaluation_error"
+          ]
+        },
+        "message": {
+          "description": "Descrição legível da falha. Nunca deve conter PII.",
+          "type": "string",
+          "maxLength": 2000
+        },
+        "attempts": {
+          "description": "Quantas vezes o consumidor tentou processar antes de desistir.",
+          "type": "integer",
+          "minimum": 1
+        },
+        "schema_errors": {
+          "description": "Erros de validação, quando o código for schema_validation_failed. Torna o diagnóstico possível sem reproduzir o caso localmente.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["pointer", "detail"],
+            "additionalProperties": false,
+            "properties": {
+              "pointer": { "type": "string" },
+              "detail": { "type": "string" }
+            }
+          }
+        },
+        "partition": {
+          "description": "Partição de origem, para correlacionar com o offset.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "offset": {
+          "description": "Offset de origem. Junto com tópico e partição, permite reprocessar exatamente esta mensagem após corrigir o defeito.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "source_topic": {
+          "type": "string",
+          "examples": ["drivers.status.v1", "drivers.profile.v1"]
+        }
+      }
+    }
+  }
+}
