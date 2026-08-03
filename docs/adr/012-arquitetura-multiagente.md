@@ -86,4 +86,4 @@ O formato de subagents e hooks aqui é o do **Claude Code**. Gemini e Copilot t�
 ## Relacionadas
 
 - [05-ai-harness.md](../05-ai-harness.md) — camada detectiva
-- `docs/07-repo-ai-native.md` — camada preventiva em detalhe
+- [07-repo-ai-native.md](../07-repo-ai-native.md) — camada preventiva em detalhe
