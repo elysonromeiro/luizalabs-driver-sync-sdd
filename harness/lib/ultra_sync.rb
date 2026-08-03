@@ -12,6 +12,7 @@ require_relative "ultra_sync/consumer"
 require_relative "ultra_sync/eligibility_policy"
 require_relative "ultra_sync/dispatch_rules"
 require_relative "ultra_sync/batch_processor"
+require_relative "ultra_sync/reconciliation"
 
 # Motor de Sincronização de Entregadores — harness executável.
 #
