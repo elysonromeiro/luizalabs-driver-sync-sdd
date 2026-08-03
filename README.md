@@ -52,7 +52,7 @@ Sincronizar o ciclo de vida do entregador entre os dois sistemas, respeitando tr
 | 1 — Concorrência e idempotência | `docs/02-concorrencia.md` | pendente |
 | 1 — Resiliência e tolerância a falhas | `docs/03-resiliencia.md` | pendente |
 | 1 — Segurança e dados sensíveis | `docs/04-seguranca.md` | pendente |
-| 2 — Contratos de eventos | `contracts/` | pendente |
+| 2 — Contratos de eventos | [`contracts/`](contracts/README.md) | **pronto** |
 | 3 — AI harness e guardrails | `docs/05-ai-harness.md` | pendente |
 | 3 — Repositório AI-native | `docs/07-repo-ai-native.md` | pendente |
 | Especialista | `docs/06-especialista.md` | pendente |
