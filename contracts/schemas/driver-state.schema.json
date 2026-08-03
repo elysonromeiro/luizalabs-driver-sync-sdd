@@ -1,0 +1,141 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.magalu.com.br/logistica/driver-sync/v1/driver-state.schema.json",
+  "title": "Estado do entregador",
+  "description": "Representação COMPLETA do estado do entregador no momento do fato (state-carried event transfer). Todo evento do ciclo de vida carrega este objeto inteiro, nunca um delta. Ver ADR-013 para o trade-off; em resumo: com estado completo, aplicar um evento é uma atribuição idempotente condicionada à versão, o que torna reprocessamento e chegada fora de ordem seguros por construção, e faz o tópico compactado servir catch-up sem nenhum trabalho adicional.",
+  "type": "object",
+  "required": [
+    "driver_id",
+    "status",
+    "document_type",
+    "document_token",
+    "vehicle",
+    "delivery_radius_km",
+    "operating_area",
+    "segments",
+    "compliance",
+    "created_at",
+    "updated_at"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "driver_id": {
+      "description": "Identificador do entregador no Portal. Estável por toda a vida do cadastro.",
+      "type": "string",
+      "format": "uuid"
+    },
+    "status": {
+      "$ref": "#/$defs/DriverStatus"
+    },
+    "document_type": {
+      "description": "Natureza jurídica do entregador. Não é PII — é classificação, e é justamente o campo que permite à Ultra-rápida rejeitar pessoa física sem consultar nenhum dado sensível.",
+      "enum": ["cpf", "cnpj"]
+    },
+    "document_token": {
+      "description": "Token opaco que referencia CPF/CNPJ. O número real nunca trafega no evento; quem precisa dele resolve via GET /v1/drivers/{driver_id}/sensitive, sob autorização. Ver ADR-007.",
+      "type": "string",
+      "pattern": "^tok_[A-Za-z0-9]{24,64}$"
+    },
+    "vehicle": {
+      "$ref": "#/$defs/Vehicle"
+    },
+    "delivery_radius_km": {
+      "description": "Raio máximo de atuação declarado pelo entregador, em quilômetros.",
+      "type": "number",
+      "minimum": 0,
+      "maximum": 200
+    },
+    "operating_area": {
+      "$ref": "#/$defs/OperatingArea"
+    },
+    "segments": {
+      "description": "Segmentos em que o entregador está habilitado a operar. Vazio significa habilitado em nenhum.",
+      "type": "array",
+      "items": { "enum": ["goods", "food"] },
+      "uniqueItems": true
+    },
+    "compliance": {
+      "$ref": "#/$defs/Compliance"
+    },
+    "created_at": {
+      "description": "Instante de criação do cadastro no Portal, RFC 3339 em UTC.",
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated_at": {
+      "description": "Instante da última alteração no Portal, RFC 3339 em UTC. Usado pela reconciliação por keyset pagination, não para ordenar eventos.",
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "$defs": {
+    "DriverStatus": {
+      "description": "Estado no ciclo de vida, conforme o Portal. `blocked` é o bloqueio de segurança e tem prioridade operacional máxima: transições para ele viajam pelo fast-lane.",
+      "enum": [
+        "pending_approval",
+        "active",
+        "inactive",
+        "blocked",
+        "offboarded"
+      ]
+    },
+    "Vehicle": {
+      "type": "object",
+      "required": ["type", "cargo_capacity_kg"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "enum": ["on_foot", "bicycle", "scooter", "motorcycle", "car", "van"]
+        },
+        "plate_token": {
+          "description": "Token opaco da placa, quando o veículo exige emplacamento. Ausente para on_foot e bicycle.",
+          "type": "string",
+          "pattern": "^tok_[A-Za-z0-9]{24,64}$"
+        },
+        "cargo_capacity_kg": {
+          "description": "Capacidade de carga em quilogramas, usada pelo motor de despacho para casar oferta e pedido.",
+          "type": "number",
+          "minimum": 0,
+          "maximum": 3500
+        }
+      }
+    },
+    "OperatingArea": {
+      "type": "object",
+      "required": ["ibge_city_code", "uf"],
+      "additionalProperties": false,
+      "properties": {
+        "ibge_city_code": {
+          "description": "Código IBGE do município de atuação — sete dígitos.",
+          "type": "string",
+          "pattern": "^[0-9]{7}$"
+        },
+        "uf": {
+          "type": "string",
+          "pattern": "^[A-Z]{2}$"
+        }
+      }
+    },
+    "Compliance": {
+      "description": "Situação documental e de checagem. É o insumo da política de elegibilidade do consumidor, que pode ser mais restritiva que a do Portal.",
+      "type": "object",
+      "required": ["background_check", "documents_valid_until"],
+      "additionalProperties": false,
+      "properties": {
+        "background_check": {
+          "enum": ["pending", "approved", "rejected", "expired"]
+        },
+        "documents_valid_until": {
+          "description": "Data de validade do documento mais restritivo. Nulo quando não há documento com validade aplicável.",
+          "type": ["string", "null"],
+          "format": "date"
+        },
+        "approved_at": {
+          "description": "Instante da aprovação no Portal. Ausente enquanto o cadastro não foi aprovado.",
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    }
+  }
+}
