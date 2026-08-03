@@ -215,7 +215,9 @@ Declarado porque solução sem limites declarados não foi levada a sério:
 
 - **Documentação em português**; histórico do Git em inglês, no padrão [Conventional Commits](https://www.conventionalcommits.org/).
 - `main` é a branch principal. Cada fase de trabalho entrou por uma branch `feature/*` e um Pull Request.
-- Diagramas em [Mermaid](https://mermaid.js.org/), renderizados nativamente pelo GitHub.
+- Diagramas em [Mermaid](https://mermaid.js.org/), renderizados nativamente pelo GitHub **no navegador**.
+
+> **Se os diagramas aparecerem como blocos de código**, você está no aplicativo móvel do GitHub, que exibe Markdown mas não renderiza Mermaid. Abra a mesma página em `github.com` no navegador — desktop ou móvel — e os diagramas aparecem.
 - O repositório é **AI-native por construção**: [`CLAUDE.md`](CLAUDE.md) é o contrato com agentes, e `.claude/` contém hooks, subagents e skills versionados.
 
 O enunciado original do desafio não é redistribuído aqui; o contexto e os requisitos acima o reproduzem no que é necessário para acompanhar o documento.
