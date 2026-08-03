@@ -110,6 +110,22 @@ module UltraSync
 
       def delete(driver_id) = synchronize { @projections.delete(driver_id) }
 
+      # ATENÇÃO — existe APENAS para demonstrar o lost update em
+      # spec/concurrency. Escreve sem comparar versão, que é exatamente o bug
+      # que a escrita condicional evita.
+      #
+      # Nada em lib/ pode chamar este método. Há um guardrail no CI que falha
+      # se ele aparecer fora de spec/.
+      def unsafe_write(driver_id:, state:, source_version:)
+        synchronize do
+          @query_count += 1
+          @projections[driver_id] = Projection.new(
+            driver_id: driver_id, state: state, source_version: source_version
+          )
+          1
+        end
+      end
+
       def reset_query_count! = synchronize { @query_count = 0 }
     end
   end

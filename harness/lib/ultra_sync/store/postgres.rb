@@ -47,6 +47,9 @@ module UltraSync
 
       def initialize(**opts)
         @conn = PG.connect(**self.class.connection_params(**opts))
+        # CREATE TABLE IF NOT EXISTS emite NOTICE a cada conexão. Ruído puro
+        # na saída da suíte, e ruído é o que faz gente parar de ler a saída.
+        @conn.exec("SET client_min_messages TO WARNING")
         @query_count = 0
         migrate!
       end
