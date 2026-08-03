@@ -55,21 +55,21 @@ flowchart LR
 git clone https://github.com/elysonromeiro/luizalabs-driver-sync-sdd
 cd luizalabs-driver-sync-sdd/harness && bundle install
 
-bundle exec rspec        # 104 exemplos, sem nenhuma dependência externa
+bundle exec rspec        # 111 exemplos, sem nenhuma dependência externa
 ```
 
 Com Docker, acrescenta concorrência real e mensageria:
 
 ```bash
 docker compose up -d             # postgres:16 + kafka
-cd harness && bundle exec rspec  # 130 exemplos
+cd harness && bundle exec rspec  # 137 exemplos
 bin/sabotage                     # 6 violações deliberadas
 bin/mutate                       # 12 mutações
 ```
 
 | Verificação | Resultado |
 |---|---|
-| Suíte completa | **130 exemplos, 0 falhas** |
+| Suíte completa | **137 exemplos, 0 falhas** |
 | Invariantes | **60** |
 | Mutações mortas | **12 / 12** |
 | Sabotagens barradas | **6 / 6** |

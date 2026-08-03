@@ -67,6 +67,28 @@ RSpec.describe "Guardrails: números citados na documentação" do
     end
   end
 
+  # Contagem de exemplos da suíte.
+  #
+  # Acrescentado depois de o próprio spec anterior mudar o total: ao entrar na
+  # suíte, ele levou os exemplos de 130 para 136 e deixou os documentos
+  # desatualizados. Um guardrail contra deriva que não cobre o número mais
+  # citado do documento é exatamente o tipo de cobertura assimétrica que este
+  # repositório argumenta contra.
+  it "os documentos citam o número real de exemplos da suíte" do
+    report = JSON.parse(
+      `cd #{REPO}/harness && bundle exec rspec --dry-run --format json 2>/dev/null`[/\{.*\}/m].to_s
+    )
+    total = report.fetch("examples").size
+
+    %w[README.md CLAUDE.md].each do |file|
+      cited = read(file).scan(/(\d+) exemplos/).flatten.map(&:to_i)
+      # Números menores que o total são a suíte rápida, legitimamente citada.
+      wrong = cited.select { |n| n > total }
+      expect(wrong).to be_empty,
+                       "#{file} cita #{wrong.join(', ')} exemplos, mas a suíte tem #{total}"
+    end
+  end
+
   it "os casos golden citados batem com o arquivo" do
     cited = read("README.md").scan(/(\d+)\s+casos congelados/).flatten.map(&:to_i)
 

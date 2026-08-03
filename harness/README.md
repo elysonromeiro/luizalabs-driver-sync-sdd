@@ -25,8 +25,8 @@ bundle exec rspec --tag pg
 
 | Modo | Exemplos | Tempo |
 |---|---|---|
-| Sem Docker | 104 | ~2 s |
-| Com Postgres e Kafka | 130 | ~14 s |
+| Sem Docker | 111 | ~2 s |
+| Com Postgres e Kafka | 137 | ~14 s |
 
 ## O que cada camada prova
 
