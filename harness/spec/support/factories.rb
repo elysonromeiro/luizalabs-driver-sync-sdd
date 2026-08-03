@@ -74,6 +74,11 @@ module Factories
 
   # Envelope CloudEvents completo, para os testes de decodificação e de
   # conformidade com o contrato.
+  #
+  # `data` carrega os campos específicos de cada tipo. Isso não é detalhe: sem
+  # eles o envelope é recusado pelo schema, e o harness estaria exercitando as
+  # invariantes sobre payloads que a produção nunca veria. O spec de
+  # conformidade existe para pegar exatamente essa divergência — e pegou.
   def cloud_event(driver_id:, sequence:, kind: :updated, rng: Random.new, **opts)
     ev = event(driver_id: driver_id, sequence: sequence, kind: kind, rng: rng, **opts)
     {
@@ -88,8 +93,20 @@ module Factories
       "partitionkey"    => ev.driver_id,
       "datacontenttype" => "application/json",
       "dataschema"      => "https://schemas.magalu.com.br/logistica/driver-sync/v1/#{ev.type.split('.')[-2]}.schema.json",
-      "data"            => { "driver" => ev.state }
+      "data"            => { "driver" => ev.state }.merge(type_specific_data(kind))
     }
+  end
+
+  def type_specific_data(kind)
+    case kind
+    when :updated
+      { "changed_fields" => ["/delivery_radius_km"] }
+    when :status_changed
+      { "previous_status" => "active",
+        "reason"          => { "code" => "security_block", "actor" => { "kind" => "system" } } }
+    else
+      {}
+    end
   end
 
   def stringify(hash)

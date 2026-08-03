@@ -27,8 +27,11 @@ module UltraSync
 
       attr_reader :query_count, :conn
 
+      # connect_timeout evita que a suíte fique pendurada quando o host existe
+      # mas não responde — sem ele, um Postgres inalcançável (e não apenas
+      # ausente) travaria a suíte inteira em vez de pular os specs.
       def self.available?(**opts)
-        conn = PG.connect(**connection_params(**opts))
+        conn = PG.connect(**connection_params(**opts), connect_timeout: 2)
         conn.close
         true
       rescue PG::Error, SocketError
