@@ -128,6 +128,36 @@ RSpec.describe "Contratos: conformidade" do
       end
     end
 
+    # O gerador de propriedades é o que produz VOLUME. Se ele emite evento que
+    # o contrato recusaria, as invariantes rodam sobre payloads que a produção
+    # nunca veria — e a suíte inteira perde parte do valor sem que nada falhe.
+    #
+    # Adicionado em revisão, depois de descobrir exatamente isso: o gerador
+    # sorteava o tipo livremente e produzia `driver.created` com sequence 3,
+    # violando o `const: "1"` do schema. O spec cobria as fábricas e não o
+    # gerador, que em retrospecto é o ponto cego óbvio.
+    it "os eventos do gerador de propriedades validam contra o contrato" do
+      require_relative "../properties/generators"
+
+      offenders = []
+      10.times do |seed|
+        Generators.event_sequence(rng: Random.new(seed)).each do |event|
+          envelope = Factories.cloud_event(
+            driver_id: event.driver_id, sequence: event.sequence,
+            kind: event.kind, state: event.state
+          )
+          errors = errors_for("driver.#{event.kind}.schema.json", envelope)
+          next if errors.empty?
+
+          offenders << "#{event.inspect}: #{errors.map { _1['data_pointer'] }.uniq.join(', ')}"
+        end
+      end
+
+      expect(offenders.uniq.first(5)).to be_empty,
+                                         "o gerador produz eventos fora do contrato:\n  " +
+                                         offenders.uniq.first(5).join("\n  ")
+    end
+
     it "os enums do código gerado batem com o contrato" do
       driver_state = SCHEMAS.fetch(
         URI("https://schemas.magalu.com.br/logistica/driver-sync/v1/driver-state.schema.json")
