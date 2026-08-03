@@ -1,0 +1,112 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Inventário congelado dos testes de invariante.
+#
+# POR QUE ISTO EXISTE
+#
+# Todo guardrail deste repositório assume que os testes continuam existindo.
+# Nenhum deles cobre o vetor mais simples: **o agente apaga o teste que
+# incomoda**, ou o marca `xit`, ou renomeia até virar outra coisa. A suíte
+# fica verde, a cobertura cai um pouco, e ninguém nota.
+#
+# O inventário fecha essa porta. A lista de exemplos marcados `:invariant` é
+# congelada num lock file. Remover, renomear ou desabilitar um deles falha o
+# CI. Acrescentar é sempre permitido — proteção que atrapalha crescer vira
+# proteção desligada.
+#
+# Atualizar o lock é possível e deliberado: exige rodar `bin/test_inventory`,
+# o que produz uma alteração visível no diff, num arquivo protegido por
+# CODEOWNERS. A ideia não é impedir a mudança, é impedir que ela passe
+# despercebida.
+#
+#   bin/test_inventory           regrava o lock
+#   bin/test_inventory --check   falha se algo sumiu ou foi desabilitado
+
+require "json"
+require "open3"
+
+ROOT = File.expand_path("..", __dir__)
+LOCK = File.join(ROOT, "spec/guardrails/invariants.lock")
+CHECK = ARGV.include?("--check")
+
+# --dry-run não executa nada: só carrega os arquivos e enumera os exemplos.
+# Barato o bastante para rodar em todo commit.
+cmd = %w[bundle exec rspec --tag invariant --dry-run --format json]
+stdout, stderr, status = Open3.capture3(*cmd, chdir: ROOT)
+
+unless status.success?
+  warn "test_inventory: rspec falhou ao enumerar os exemplos"
+  warn stderr
+  exit 2
+end
+
+report = JSON.parse(stdout[/\{.*\}/m].to_s)
+examples = report.fetch("examples", [])
+
+if examples.empty?
+  warn "test_inventory: nenhum exemplo marcado :invariant foi encontrado."
+  warn "                Isso é anômalo — a tag existe justamente para não sumir."
+  exit 2
+end
+
+# Guarda arquivo + descrição, não o id (`spec/x.rb[1:2:3]`), que muda quando
+# qualquer exemplo é inserido acima. Um lock que quebra com reordenação seria
+# ruído e acabaria ignorado.
+inventory = examples.map do |example|
+  {
+    "file"    => example.fetch("file_path"),
+    "name"    => example.fetch("full_description"),
+    "pending" => example["status"] == "pending"
+  }
+end.sort_by { |e| [e["file"], e["name"]] }
+
+if !CHECK
+  File.write(LOCK, "#{JSON.pretty_generate(inventory)}\n")
+  puts "test_inventory: #{inventory.size} invariantes congeladas em #{LOCK.sub("#{ROOT}/", '')}"
+  exit 0
+end
+
+unless File.exist?(LOCK)
+  warn "test_inventory: lock ausente. Rode `bin/test_inventory` e versione o arquivo."
+  exit 1
+end
+
+locked  = JSON.parse(File.read(LOCK))
+current = inventory
+
+locked_names  = locked.map { _1["name"] }
+current_names = current.map { _1["name"] }
+
+removed  = locked_names - current_names
+added    = current_names - locked_names
+disabled = current.select { _1["pending"] }.map { _1["name"] }
+
+problems = []
+
+removed.each do |name|
+  problems << "REMOVIDA ou RENOMEADA: #{name}"
+end
+
+disabled.each do |name|
+  problems << "DESABILITADA (skip/xit): #{name}"
+end
+
+if problems.empty?
+  message = "test_inventory: #{current.size} invariantes, todas presentes e ativas"
+  message += " (#{added.size} nova(s))" if added.any?
+  puts message
+  # Invariante nova não falha, mas o lock precisa acompanhar para que a
+  # próxima remoção seja detectável.
+  File.write(LOCK, "#{JSON.pretty_generate(current)}\n") if added.any?
+  exit 0
+end
+
+warn "test_inventory: #{problems.size} problema(s)"
+warn ""
+problems.each { warn "  #{_1}" }
+warn ""
+warn "  Uma invariante não some por acidente. Se a remoção for intencional,"
+warn "  rode `bin/test_inventory` e explique a mudança no PR — o lock é"
+warn "  protegido por CODEOWNERS e exige revisão humana."
+exit 1

@@ -1,0 +1,154 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Verifica compatibilidade BACKWARD dos contratos contra a branch base.
+#
+# POR QUE ISTO EXISTE
+#
+# `contracts/README.md` declara quais mudanças são permitidas dentro de uma
+# versão maior. Regra escrita em prosa é regra que se interpreta sob pressão de
+# prazo — "esse campo é praticamente opcional" é a frase que quebra consumidor
+# em produção. Este script transforma a política em portão de build.
+#
+# A assimetria importa: um produtor que adiciona campo obrigatório não quebra a
+# si mesmo, quebra quem consome. Quem paga o erro não é quem o comete, e é
+# exatamente esse tipo de risco que precisa de verificação automática.
+#
+#   bin/schema_compat                compara com origin/main
+#   bin/schema_compat --base BRANCH  compara com outra referência
+
+require "json"
+require "open3"
+require "set"
+
+ROOT = File.expand_path("../..", __dir__)
+base_index = ARGV.index("--base")
+BASE = base_index ? ARGV[base_index + 1] : ENV.fetch("BASE_REF", "origin/main")
+
+def git(*args)
+  stdout, _stderr, status = Open3.capture3("git", *args, chdir: ROOT)
+  [stdout, status.success?]
+end
+
+# Coleta caminhos e tipos de todo campo do schema, recursivamente.
+# Devolve { "/properties/status" => {type:, enum:, required:} }
+def flatten(node, path = "", required_here = [], acc = {})
+  return acc unless node.is_a?(Hash)
+
+  # Registra as restrições DO PRÓPRIO nó, não apenas as dos filhos em
+  # `properties`. Sem isso, um enum definido direto em `$defs` — como
+  # DriverStatus — nunca entra no inventário, e remover um de seus valores
+  # passa despercebido.
+  if !path.empty? && (node["enum"] || node["type"])
+    existing = acc[path] || {}
+    acc[path] = {
+      type:     node["type"]    || existing[:type],
+      enum:     node["enum"]    || existing[:enum],
+      maximum:  node["maximum"] || existing[:maximum],
+      minimum:  node["minimum"] || existing[:minimum],
+      required: existing.fetch(:required, false)
+    }
+  end
+
+  if node["properties"].is_a?(Hash)
+    req = node["required"] || []
+    node["properties"].each do |name, sub|
+      field = "#{path}/#{name}"
+      acc[field] = {
+        type:     sub["type"],
+        enum:     sub["enum"],
+        maximum:  sub["maximum"],
+        minimum:  sub["minimum"],
+        required: req.include?(name)
+      }
+      flatten(sub, field, req, acc)
+    end
+  end
+
+  %w[$defs allOf oneOf anyOf items].each do |key|
+    value = node[key]
+    case value
+    when Hash  then value.each { |k, v| flatten(v, "#{path}/#{key == '$defs' ? k : key}", required_here, acc) }
+    when Array then value.each_with_index { |v, i| flatten(v, "#{path}/#{key}[#{i}]", required_here, acc) }
+    end
+  end
+
+  acc
+end
+
+_, ok = git("rev-parse", "--verify", BASE)
+unless ok
+  puts "schema_compat: referência #{BASE} não existe neste clone — nada a comparar."
+  puts "               (normal em repositório recém-criado ou em CI sem fetch completo)"
+  exit 0
+end
+
+schemas = Dir[File.join(ROOT, "contracts/schemas/*.json")].sort
+violations = []
+compared = 0
+
+schemas.each do |path|
+  relative = path.sub("#{ROOT}/", "")
+  old_source, exists = git("show", "#{BASE}:#{relative}")
+
+  unless exists
+    puts "  novo    #{relative} — schema inédito, nada a comparar"
+    next
+  end
+
+  compared += 1
+  old_fields = flatten(JSON.parse(old_source))
+  new_fields = flatten(JSON.parse(File.read(path)))
+
+  # 1. Campo removido — consumidor que o lê para de encontrá-lo.
+  (old_fields.keys - new_fields.keys).each do |field|
+    violations << [relative, "campo REMOVIDO: #{field}"]
+  end
+
+  new_fields.each do |field, spec|
+    old = old_fields[field]
+
+    # 2. Campo obrigatório novo — produtor antigo passa a emitir payload inválido.
+    if old.nil?
+      violations << [relative, "campo OBRIGATÓRIO adicionado: #{field}"] if spec[:required]
+      next
+    end
+
+    # 3. Opcional que virou obrigatório.
+    if spec[:required] && !old[:required]
+      violations << [relative, "campo passou a ser OBRIGATÓRIO: #{field}"]
+    end
+
+    # 4. Tipo estreitado.
+    if old[:type] && spec[:type] && old[:type] != spec[:type]
+      violations << [relative, "TIPO alterado em #{field}: #{old[:type].inspect} → #{spec[:type].inspect}"]
+    end
+
+    # 5. Valor de enum removido — payload que era válido deixa de ser.
+    if old[:enum] && spec[:enum]
+      dropped = old[:enum] - spec[:enum]
+      violations << [relative, "valor de ENUM removido em #{field}: #{dropped.inspect}"] if dropped.any?
+    end
+
+    # 6. Restrição numérica estreitada.
+    if old[:maximum] && spec[:maximum] && spec[:maximum] < old[:maximum]
+      violations << [relative, "MÁXIMO reduzido em #{field}: #{old[:maximum]} → #{spec[:maximum]}"]
+    end
+    if old[:minimum] && spec[:minimum] && spec[:minimum] > old[:minimum]
+      violations << [relative, "MÍNIMO aumentado em #{field}: #{old[:minimum]} → #{spec[:minimum]}"]
+    end
+  end
+end
+
+if violations.empty?
+  puts "schema_compat: #{compared} schema(s) comparado(s) com #{BASE}, compatibilidade BACKWARD preservada"
+  exit 0
+end
+
+warn "schema_compat: #{violations.size} quebra(s) de compatibilidade contra #{BASE}"
+warn ""
+violations.each { |file, message| warn "  #{file}\n    #{message}" }
+warn ""
+warn "  Mudança incompatível exige NOVA VERSÃO MAIOR do contrato, com as duas"
+warn "  convivendo até o sunset anunciado. Ver contracts/README.md."
+exit 1

@@ -1,0 +1,87 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Exige que mudança em caminho crítico venha acompanhada de mudança em teste.
+#
+# POR QUE ISTO EXISTE
+#
+# Um agente de IA que altera `event_applier.rb` sem tocar em nenhum spec está,
+# por definição, mudando comportamento que ninguém pediu para verificar. Pode
+# ser refatoração inofensiva; pode ser a remoção silenciosa de uma garantia.
+# A diferença não se decide por leitura rápida de diff, e é justamente em
+# leitura rápida de diff que a revisão de código gerado por IA acontece.
+#
+# A regra é grosseira de propósito: não tenta adivinhar se a mudança é
+# perigosa, apenas força que alguém tenha pensado no teste. Falso positivo aqui
+# custa uma linha de spec; falso negativo custa produção.
+#
+#   bin/coupled_change                  compara com origin/main
+#   bin/coupled_change --base BRANCH
+#   bin/coupled_change --list           mostra os caminhos protegidos
+
+require "open3"
+
+ROOT = File.expand_path("../..", __dir__)
+
+# Arquivos onde mora a corretude do sistema. A lista é curta de propósito:
+# proteger tudo é o mesmo que não proteger nada, porque a regra vira ruído e
+# alguém a desliga.
+PROTECTED = %w[
+  harness/lib/ultra_sync/event_applier.rb
+  harness/lib/ultra_sync/eligibility_policy.rb
+  harness/lib/ultra_sync/dispatch_rules.rb
+  harness/lib/ultra_sync/batch_processor.rb
+  harness/lib/ultra_sync/consumer.rb
+  harness/lib/ultra_sync/circuit_breaker.rb
+  harness/lib/ultra_sync/store/memory.rb
+  harness/lib/ultra_sync/store/postgres.rb
+].freeze
+
+if ARGV.include?("--list")
+  PROTECTED.each { puts _1 }
+  exit 0
+end
+
+base_index = ARGV.index("--base")
+base = base_index ? ARGV[base_index + 1] : ENV.fetch("BASE_REF", "origin/main")
+
+_, _, verify = Open3.capture3("git", "rev-parse", "--verify", base, chdir: ROOT)
+unless verify.success?
+  puts "coupled_change: referência #{base} não existe neste clone — nada a comparar."
+  exit 0
+end
+
+diff, _stderr, status = Open3.capture3("git", "diff", "--name-only", "#{base}...HEAD", chdir: ROOT)
+unless status.success?
+  warn "coupled_change: não foi possível calcular o diff contra #{base}"
+  exit 2
+end
+
+changed = diff.lines.map(&:strip).reject(&:empty?)
+touched_protected = changed & PROTECTED
+touched_specs     = changed.select { _1.start_with?("harness/spec/") }
+
+if touched_protected.empty?
+  puts "coupled_change: nenhum caminho protegido alterado"
+  exit 0
+end
+
+if touched_specs.any?
+  puts "coupled_change: #{touched_protected.size} caminho(s) protegido(s) alterado(s), " \
+       "acompanhado(s) de #{touched_specs.size} mudança(s) em spec/"
+  exit 0
+end
+
+warn "coupled_change: comportamento crítico alterado SEM mudança em spec/"
+warn ""
+touched_protected.each { warn "  #{_1}" }
+warn ""
+warn "  Estes arquivos concentram as garantias do sistema. Alterá-los sem tocar"
+warn "  em nenhum teste significa mudar comportamento que ninguém está"
+warn "  verificando."
+warn ""
+warn "  Se a mudança for genuinamente sem efeito observável (renomear variável,"
+warn "  reescrever comentário), diga isso no PR e peça revisão humana — não"
+warn "  contorne acrescentando um teste vazio, que é o que este guardrail"
+warn "  existe para tornar visível."
+exit 1
