@@ -1,0 +1,66 @@
+{
+  "dead_lettered_at": "2026-08-03T14:09:01.744Z",
+  "consumer": "ultra-rapida.driver-sync",
+  "failure": {
+    "code": "schema_validation_failed",
+    "message": "Payload rejeitado pelo contrato driver.updated.v1",
+    "attempts": 1,
+    "schema_errors": [
+      {
+        "pointer": "/subject",
+        "detail": "value \"8b41cypo-invalid-uuid-on-purpose\" does not conform to format uuid"
+      },
+      {
+        "pointer": "/data/driver/vehicle/cargo_capacity_kg",
+        "detail": "value 9800 is greater than maximum 3500"
+      },
+      {
+        "pointer": "/data/driver/operating_area/ibge_city_code",
+        "detail": "value \"35503\" does not match pattern ^[0-9]{7}$"
+      }
+    ],
+    "source_topic": "drivers.profile.v1",
+    "partition": 11,
+    "offset": 84172390
+  },
+  "original_event": {
+    "specversion": "1.0",
+    "id": "c58e3b7a-1d94-4f26-b0c8-6a2e9f4d7315",
+    "source": "/magalu/logistica/portal-entregadores",
+    "type": "br.com.magalu.logistica.driver.updated.v1",
+    "time": "2026-08-03T14:08:59.310Z",
+    "subject": "8b41cypo-invalid-uuid-on-purpose",
+    "sequence": "17",
+    "sequencetype": "Integer",
+    "partitionkey": "8b41c7d2-9e35-4a80-b6f1-3c5d8e2a7409",
+    "datacontenttype": "application/json",
+    "dataschema": "https://schemas.magalu.com.br/logistica/driver-sync/v1/driver.updated.schema.json",
+    "data": {
+      "changed_fields": ["/vehicle/cargo_capacity_kg"],
+      "driver": {
+        "driver_id": "8b41c7d2-9e35-4a80-b6f1-3c5d8e2a7409",
+        "status": "active",
+        "document_type": "cnpj",
+        "document_token": "tok_2WqE5rT8yU1iO4pA7sD0fG3h",
+        "vehicle": {
+          "type": "van",
+          "plate_token": "tok_Z9xC6vB3nM0kL7jH4gF1dS8a",
+          "cargo_capacity_kg": 9800
+        },
+        "delivery_radius_km": 40,
+        "operating_area": {
+          "ibge_city_code": "35503",
+          "uf": "SP"
+        },
+        "segments": ["goods"],
+        "compliance": {
+          "background_check": "approved",
+          "documents_valid_until": "2028-01-15",
+          "approved_at": "2026-01-20T11:30:00.000Z"
+        },
+        "created_at": "2026-01-19T08:12:44.001Z",
+        "updated_at": "2026-08-03T14:08:59.208Z"
+      }
+    }
+  }
+}

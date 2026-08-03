@@ -1,0 +1,302 @@
+asyncapi: 3.0.0
+
+info:
+  title: Motor de Sincronização de Entregadores
+  version: 1.0.0
+  description: |
+    Contrato assíncrono que propaga o ciclo de vida de entregadores do **Portal dos
+    Entregadores** (system of record) para a **Ultra-rápida** e para qualquer outro
+    consumidor do ecossistema Magalu.
+
+    ## Como ler este documento
+
+    Quatro canais, com papéis deliberadamente distintos:
+
+    | Canal | Papel | Por quê |
+    |---|---|---|
+    | `drivers.status.v1` | fast-lane | Transições de status são baixo volume e altíssima criticidade. Canal próprio para que uma ativação nunca fique atrás do backlog de perfil. |
+    | `drivers.profile.v1` | bulk-lane | Alterações de perfil são o grosso do volume e toleram atraso. |
+    | `drivers.snapshot.v1` | compactado | Último estado por entregador. Serve bootstrap de consumidor novo e catch-up pós-outage sem tocar o banco do Portal. |
+    | `drivers.dlq.v1` | dead letter | Somente falhas permanentes de payload. Indisponibilidade não gera dead letter — ver ADR-008. |
+
+    ## Garantias
+
+    - **Ordenação**: `partitionkey` é o `driver_id`, então todos os eventos de um
+      entregador caem na mesma partição e são entregues em ordem. Ainda assim, o
+      consumidor NÃO confia nisso: replay, rebalance e reprocessamento podem reordenar.
+      A ordem lógica é dada exclusivamente por `sequence`.
+    - **Idempotência**: o par `(source, id)` identifica unicamente um evento. O consumidor
+      deduplica por ele.
+    - **Convergência**: todo evento carrega estado completo, então aplicar o de maior
+      `sequence` basta para chegar ao estado correto, independentemente do que chegou antes.
+
+    ## Fan-out
+
+    O Portal não conhece seus consumidores. Uma plataforma nova é um consumer group
+    adicional — custo marginal zero para o produtor. Ver `docs/06-especialista.md`.
+
+  contact:
+    name: Time de Logística Ultra Rápida
+    url: https://github.com/elysonromeiro/luizalabs-driver-sync-sdd
+  license:
+    name: MIT
+
+defaultContentType: application/json
+
+servers:
+  kafka:
+    host: kafka.logistica.magalu.internal:9093
+    protocol: kafka-secure
+    description: |
+      Cluster Kafka do domínio de logística. Autenticação mútua por TLS e autorização
+      por ACL de tópico: o Portal só tem permissão de escrita nos canais de ciclo de
+      vida, e cada consumidor só tem leitura nos que assina. Ver `docs/04-seguranca.md`.
+    security:
+      - $ref: '#/components/securitySchemes/mtls'
+    bindings:
+      kafka:
+        schemaRegistryUrl: https://schema-registry.logistica.magalu.internal
+        schemaRegistryVendor: confluent
+
+channels:
+  driverStatus:
+    address: drivers.status.v1
+    title: Fast-lane de ciclo de vida
+    description: |
+      Transições de status do entregador. Volume baixo, criticidade máxima.
+      Um bloqueio de segurança precisa refletir na Ultra-rápida em segundos.
+    messages:
+      driverStatusChanged:
+        $ref: '#/components/messages/DriverStatusChanged'
+    bindings:
+      kafka:
+        topic: drivers.status.v1
+        partitions: 12
+        replicas: 3
+        topicConfiguration:
+          cleanup.policy: [delete]
+          retention.ms: 604800000
+          min.insync.replicas: 2
+
+  driverProfile:
+    address: drivers.profile.v1
+    title: Bulk-lane de ciclo de vida
+    description: |
+      Criação de cadastro e alterações de perfil. É o canal de maior volume e o que
+      tolera atraso — separá-lo do fast-lane é o que impede que um backlog de
+      atualizações atrase uma ativação.
+    messages:
+      driverCreated:
+        $ref: '#/components/messages/DriverCreated'
+      driverUpdated:
+        $ref: '#/components/messages/DriverUpdated'
+    bindings:
+      kafka:
+        topic: drivers.profile.v1
+        partitions: 24
+        replicas: 3
+        topicConfiguration:
+          cleanup.policy: [delete]
+          retention.ms: 604800000
+          min.insync.replicas: 2
+
+  driverSnapshot:
+    address: drivers.snapshot.v1
+    title: Snapshot compactado
+    description: |
+      Último estado conhecido de cada entregador, com `driver_id` como chave e
+      log compaction ligada. Um consumidor novo — ou um que ficou horas fora —
+      reconstrói a base inteira lendo daqui, sem uma única query no Postgres do
+      Portal. É o que torna o fan-out barato para a fonte.
+
+      Uma mensagem com `data` nulo é uma tombstone: sinaliza remoção definitiva do
+      entregador e permite ao compactador liberar o espaço. É também o mecanismo de
+      apagamento no fluxo de LGPD — ver ADR-007.
+    messages:
+      driverSnapshot:
+        $ref: '#/components/messages/DriverSnapshot'
+    bindings:
+      kafka:
+        topic: drivers.snapshot.v1
+        partitions: 24
+        replicas: 3
+        topicConfiguration:
+          cleanup.policy: [compact]
+          min.cleanable.dirty.ratio: 0.1
+          delete.retention.ms: 86400000
+          min.insync.replicas: 2
+
+  driverDeadLetter:
+    address: drivers.dlq.v1
+    title: Dead letter
+    description: |
+      Eventos que o consumidor não conseguiu processar por defeito permanente de
+      payload. Retenção longa porque o diagnóstico é humano e assíncrono.
+    messages:
+      deadLetter:
+        $ref: '#/components/messages/DeadLetter'
+    bindings:
+      kafka:
+        topic: drivers.dlq.v1
+        partitions: 6
+        replicas: 3
+        topicConfiguration:
+          cleanup.policy: [delete]
+          retention.ms: 2592000000
+          min.insync.replicas: 2
+
+operations:
+  publishDriverStatusChanged:
+    action: send
+    title: Portal publica transição de status
+    channel:
+      $ref: '#/channels/driverStatus'
+    description: |
+      Emitido pelo relay do outbox após o Portal confirmar a transação que mudou o
+      status. Estado e evento são gravados na mesma transação, então não existe
+      janela em que um exista sem o outro.
+    messages:
+      - $ref: '#/channels/driverStatus/messages/driverStatusChanged'
+
+  consumeDriverStatusChanged:
+    action: receive
+    title: Ultra-rápida consome transição de status
+    channel:
+      $ref: '#/channels/driverStatus'
+    description: |
+      Consumer group dedicado, independente do que consome perfil. É essa separação
+      que garante o drain em segundos mesmo com a bulk-lane em backlog.
+    messages:
+      - $ref: '#/channels/driverStatus/messages/driverStatusChanged'
+
+  publishDriverProfile:
+    action: send
+    title: Portal publica criação ou alteração de perfil
+    channel:
+      $ref: '#/channels/driverProfile'
+    messages:
+      - $ref: '#/channels/driverProfile/messages/driverCreated'
+      - $ref: '#/channels/driverProfile/messages/driverUpdated'
+
+  consumeDriverProfile:
+    action: receive
+    title: Ultra-rápida consome criação ou alteração de perfil
+    channel:
+      $ref: '#/channels/driverProfile'
+    messages:
+      - $ref: '#/channels/driverProfile/messages/driverCreated'
+      - $ref: '#/channels/driverProfile/messages/driverUpdated'
+
+  publishDriverSnapshot:
+    action: send
+    title: Relay publica snapshot do estado corrente
+    channel:
+      $ref: '#/channels/driverSnapshot'
+    description: |
+      Publicado junto com todo evento de ciclo de vida, com a mesma chave. A
+      compaction se encarrega de manter apenas o último por entregador.
+    messages:
+      - $ref: '#/channels/driverSnapshot/messages/driverSnapshot'
+
+  bootstrapFromSnapshot:
+    action: receive
+    title: Consumidor novo faz bootstrap pelo snapshot
+    channel:
+      $ref: '#/channels/driverSnapshot'
+    description: |
+      Lido do offset zero por qualquer consumidor que precise reconstruir a base —
+      onboarding de plataforma nova ou catch-up após indisponibilidade longa.
+    messages:
+      - $ref: '#/channels/driverSnapshot/messages/driverSnapshot'
+
+  publishDeadLetter:
+    action: send
+    title: Consumidor descarta evento com defeito permanente
+    channel:
+      $ref: '#/channels/driverDeadLetter'
+    description: |
+      Só é acionado para falha permanente de payload. Falha transitória de
+      dependência abre o circuit breaker e pausa o consumo — não gera dead letter.
+    messages:
+      - $ref: '#/channels/driverDeadLetter/messages/deadLetter'
+
+components:
+  securitySchemes:
+    mtls:
+      type: X509
+      description: |
+        TLS mútuo. O certificado do cliente carrega a identidade do serviço, e as
+        ACLs do Kafka autorizam por tópico a partir dela.
+
+  messages:
+    DriverCreated:
+      name: driver.created
+      title: Entregador criado
+      summary: Cadastro de entregador passou a existir no Portal.
+      contentType: application/json
+      payload:
+        schemaFormat: application/schema+json;version=draft-2020-12
+        schema:
+          $ref: './schemas/driver.created.schema.json'
+      examples:
+        - name: novoEntregadorPJ
+          summary: Cadastro recém-criado, aguardando aprovação
+          payload:
+            $ref: './examples/driver.created.example.json'
+
+    DriverUpdated:
+      name: driver.updated
+      title: Perfil do entregador alterado
+      summary: Troca de veículo, mudança de raio de entrega ou atualização documental.
+      contentType: application/json
+      payload:
+        schemaFormat: application/schema+json;version=draft-2020-12
+        schema:
+          $ref: './schemas/driver.updated.schema.json'
+      examples:
+        - name: trocaDeVeiculo
+          summary: Entregador migra de motocicleta para carro e amplia o raio
+          payload:
+            $ref: './examples/driver.updated.example.json'
+
+    DriverStatusChanged:
+      name: driver.status_changed
+      title: Status do entregador alterado
+      summary: Ativação, inativação, bloqueio de segurança ou desligamento.
+      contentType: application/json
+      payload:
+        schemaFormat: application/schema+json;version=draft-2020-12
+        schema:
+          $ref: './schemas/driver.status_changed.schema.json'
+      examples:
+        - name: bloqueioDeSeguranca
+          summary: Entregador ativo bloqueado preventivamente pelo sistema antifraude
+          payload:
+            $ref: './examples/driver.status_changed.example.json'
+
+    DriverSnapshot:
+      name: driver.snapshot
+      title: Snapshot do estado corrente
+      summary: |
+        Último estado conhecido do entregador. Mesmo envelope dos eventos de ciclo de
+        vida; `data` nulo representa tombstone.
+      contentType: application/json
+      payload:
+        schemaFormat: application/schema+json;version=draft-2020-12
+        schema:
+          $ref: './schemas/envelope.schema.json'
+
+    DeadLetter:
+      name: dead.letter
+      title: Evento descartado
+      summary: Evento com defeito permanente de payload, preservado para diagnóstico.
+      contentType: application/json
+      payload:
+        schemaFormat: application/schema+json;version=draft-2020-12
+        schema:
+          $ref: './schemas/dead-letter.schema.json'
+      examples:
+        - name: payloadForaDoContrato
+          summary: Capacidade de carga e código IBGE fora do contrato
+          payload:
+            $ref: './examples/dead-letter.example.json'
