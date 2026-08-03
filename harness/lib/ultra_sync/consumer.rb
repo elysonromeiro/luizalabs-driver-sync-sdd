@@ -1,5 +1,9 @@
 # frozen_string_literal: true
 
+# Time#iso8601 vem de "time" — sem o require, montar o dead letter levanta
+# NoMethodError DENTRO do tratamento de erro, e o erro original vaza mascarado.
+require "time"
+
 module UltraSync
   # Laço de consumo com backpressure.
   #
@@ -22,21 +26,29 @@ module UltraSync
     ].freeze
 
     Stats = Struct.new(:processed, :dead_lettered, :paused_count, :resumed_count,
-                       :committed_offset, keyword_init: true)
+                       :retries, :committed_offset, keyword_init: true)
 
     attr_reader :breaker, :stats, :dead_letters
 
-    def initialize(applier:, breaker: CircuitBreaker.new, transient_errors: TRANSIENT_ERRORS)
+    def initialize(applier:, breaker: CircuitBreaker.new, backoff: Backoff.new,
+                   transient_errors: TRANSIENT_ERRORS)
       @applier          = applier
       @breaker          = breaker
+      @backoff          = backoff
       @transient_errors = transient_errors
       @dead_letters     = []
       @paused           = false
       @stats            = Stats.new(processed: 0, dead_lettered: 0, paused_count: 0,
-                                    resumed_count: 0, committed_offset: -1)
+                                    resumed_count: 0, retries: 0, committed_offset: -1)
     end
 
     def paused? = @paused
+
+    # Desfechos que autorizam avançar o offset. A lista é explícita porque a
+    # alternativa — avançar em tudo que não seja pausa — é um bug de perda de
+    # dado: uma mensagem que falhou de forma transitória e será retentada NÃO
+    # pode ter seu offset commitado, senão desaparece na retomada.
+    COMMITTABLE = %i[processed dead_lettered].freeze
 
     # Processa um lote. Devolve o offset até onde é seguro commitar.
     #
@@ -45,10 +57,14 @@ module UltraSync
     # gerar trabalho de reconciliação.
     def process_batch(messages)
       messages.each do |message|
-        return @stats.committed_offset if @paused
+        break if @paused
 
         outcome = handle(message)
         break if outcome == :paused
+        # `:retry` cai aqui e NÃO avança o offset — a mensagem volta a ser
+        # entregue. Também interrompe o lote: seguir adiante entregaria as
+        # próximas fora de ordem em relação a esta.
+        break unless COMMITTABLE.include?(outcome)
 
         @stats.committed_offset = message[:offset]
       end
@@ -65,26 +81,36 @@ module UltraSync
 
     private
 
+    # Processa uma mensagem, retentando com backoff enquanto o erro for
+    # transitório. Cada tentativa registra falha no breaker; quando ele abre, o
+    # consumo é pausado — indisponibilidade NUNCA produz dead letter.
     def handle(message)
       event = decode(message)
       return :dead_lettered unless event
 
-      @breaker.call { @applier.apply(event) }
-      @stats.processed += 1
-      :processed
-    rescue CircuitBreaker::Opened
+      @backoff.max_attempts.times do |attempt|
+        begin
+          @breaker.call { @applier.apply(event) }
+          @stats.processed += 1
+          return :processed
+        rescue CircuitBreaker::Opened
+          pause!
+          return :paused
+        rescue StandardError => e
+          unless transient?(e)
+            dead_letter(message, e)
+            return :dead_lettered
+          end
+
+          @stats.retries += 1
+          @backoff.wait(attempt)
+        end
+      end
+
+      # Esgotou as tentativas e o erro continua transitório. Isso é
+      # indisponibilidade, não defeito: pausa e deixa o log segurar a fila.
       pause!
       :paused
-    rescue StandardError => e
-      if transient?(e)
-        # Indisponibilidade NÃO produz dead letter. O breaker acumula a falha e,
-        # ao abrir, pausa o consumo — o log segura a fila.
-        pause! if @breaker.open?
-        @paused ? :paused : :retry
-      else
-        dead_letter(message, e)
-        :dead_lettered
-      end
     end
 
     # Defeito permanente de payload: o único caso em que descartar é a resposta
