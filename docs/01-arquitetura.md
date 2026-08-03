@@ -9,16 +9,16 @@ O sistema tem uma forma simples e uma propriedade que vale mais que a forma: **o
 ```mermaid
 flowchart LR
     subgraph fonte["Fonte da verdade"]
-        portal["<b>Portal dos Entregadores</b><br/><i>Ruby on Rails</i><br/>Cadastro, documentação<br/>e aprovação"]
+        portal["Portal dos Entregadores<br/>Ruby on Rails<br/>Cadastro, documentação<br/>e aprovação"]
     end
 
     subgraph backbone["Backbone de eventos"]
-        kafka[("<b>Kafka</b><br/>Log durável,<br/>particionado por driver_id")]
+        kafka[("Kafka<br/>Log durável,<br/>particionado por driver_id")]
     end
 
     subgraph consumidores["Consumidores"]
-        ultra["<b>Ultra-rápida</b><br/><i>Ruby on Rails</i><br/>Elegibilidade e despacho"]
-        futuro["<b>Plataforma N</b><br/><i>do ecossistema Magalu</i><br/>consumer group adicional"]
+        ultra["Ultra-rápida<br/>Ruby on Rails<br/>Elegibilidade e despacho"]
+        futuro["Plataforma N<br/>do ecossistema Magalu<br/>consumer group adicional"]
     end
 
     entregador(["Entregador"])
@@ -45,10 +45,10 @@ A seta pontilhada é o requisito de agnosticismo do enunciado. Ela não custa na
 flowchart TB
     subgraph portalbox["PORTAL DOS ENTREGADORES"]
         direction TB
-        api["<b>API / Admin</b><br/><i>Rails</i>"]
-        pg1[("<b>Postgres</b><br/>drivers<br/>driver_outbox")]
-        relay["<b>Outbox Relay</b><br/><i>processo Ruby</i><br/>LISTEN/NOTIFY + polling"]
-        recon["<b>API de Reconciliação</b><br/>checksums · feed · PII"]
+        api["API / Admin<br/>Rails"]
+        pg1[("Postgres<br/>drivers<br/>driver_outbox")]
+        relay["Outbox Relay<br/>processo Ruby<br/>LISTEN/NOTIFY + polling"]
+        recon["API de Reconciliação<br/>checksums · feed · PII"]
 
         api -->|"1 transação:<br/>estado + evento"| pg1
         pg1 -->|"NOTIFY"| relay
@@ -57,25 +57,25 @@ flowchart TB
 
     subgraph kafkabox["KAFKA"]
         direction TB
-        tstatus[["drivers.status.v1<br/><i>fast-lane · 12 part.</i>"]]
-        tprofile[["drivers.profile.v1<br/><i>bulk-lane · 24 part.</i>"]]
-        tsnap[["drivers.snapshot.v1<br/><i>compactado · 24 part.</i>"]]
-        tdlq[["drivers.dlq.v1<br/><i>dead letter</i>"]]
-        registry["<b>Schema Registry</b><br/>compat BACKWARD"]
+        tstatus[["drivers.status.v1<br/>fast-lane · 12 part."]]
+        tprofile[["drivers.profile.v1<br/>bulk-lane · 24 part."]]
+        tsnap[["drivers.snapshot.v1<br/>compactado · 24 part."]]
+        tdlq[["drivers.dlq.v1<br/>dead letter"]]
+        registry["Schema Registry<br/>compat BACKWARD"]
     end
 
     subgraph ultrabox["ULTRA-RÁPIDA"]
         direction TB
-        cstatus["<b>Consumer · status</b><br/><i>group próprio</i>"]
-        cprofile["<b>Consumer · perfil</b><br/><i>group próprio</i>"]
-        applier["<b>Event Applier</b><br/>dedupe + escrita condicional"]
-        policy["<b>Eligibility Policy</b><br/><i>regras da Ultra-rápida</i>"]
-        pg2[("<b>Postgres</b><br/>driver_projections<br/>processed_events")]
-        dispatch["<b>Motor de Despacho</b>"]
-        breaker["<b>Circuit Breaker</b><br/>pause/resume"]
+        cstatus["Consumer · status<br/>group próprio"]
+        cprofile["Consumer · perfil<br/>group próprio"]
+        applier["Event Applier<br/>dedupe + escrita condicional"]
+        policy["Eligibility Policy<br/>regras da Ultra-rápida"]
+        pg2[("Postgres<br/>driver_projections<br/>processed_events")]
+        dispatch["Motor de Despacho"]
+        breaker["Circuit Breaker<br/>pause/resume"]
     end
 
-    reconjob["<b>Job de Reconciliação</b><br/><i>checksum por faixa</i>"]
+    reconjob["Job de Reconciliação<br/>checksum por faixa"]
 
     relay --> tstatus
     relay --> tprofile
@@ -194,7 +194,7 @@ sequenceDiagram
     A->>PG: INSERT processed_events ON CONFLICT DO NOTHING
     PG-->>A: 1 linha — é um evento distinto
     A->>PG: UPDATE ... WHERE source_version < 6
-    PG-->>A: <b>0 linhas afetadas</b>
+    PG-->>A: 0 linhas afetadas
     Note right of A: :stale<br/>descartado, métrica emitida
 
     Note over A,PG: estado final correto: blocked.<br/>Nenhum código verificou ordem.
@@ -222,7 +222,7 @@ sequenceDiagram
 
     K->>A: evento id=abc, sequence=7 (mesmo id)
     A->>PG: INSERT processed_events (source, 'abc')<br/>ON CONFLICT DO NOTHING
-    PG-->>A: <b>0 linhas</b>
+    PG-->>A: 0 linhas
     Note right of A: :duplicate<br/>sai antes de tocar a projeção
     Note over A,PG: nenhuma escrita, nenhuma<br/>reavaliação de elegibilidade
 ```
@@ -251,7 +251,7 @@ sequenceDiagram
     C->>B: registra falha (5/5)
 
     rect rgb(254, 247, 224)
-        B->>B: <b>abre</b>
+        B->>B: abre
         B->>C: pause(partições)
         Note over C,K: consumo parado.<br/>Offset NÃO avança.<br/>Nada vai para a DLQ.
     end
@@ -266,7 +266,7 @@ sequenceDiagram
     B->>PG: probe
     PG-->>B: ok
     rect rgb(230, 244, 234)
-        B->>B: <b>meio-aberto</b> → fecha
+        B->>B: meio-aberto → fecha
         B->>C: resume(partições)
     end
 

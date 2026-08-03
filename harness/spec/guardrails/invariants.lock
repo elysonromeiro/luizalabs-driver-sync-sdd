@@ -145,6 +145,11 @@
     "pending": false
   },
   {
+    "file": "./spec/messaging/fast_lane_spec.rb",
+    "name": "Kafka: fast-lane não espera a bulk-lane eventos do mesmo entregador em canais distintos convergem",
+    "pending": false
+  },
+  {
     "file": "./spec/properties/commutativity_property_spec.rb",
     "name": "Invariante: comutatividade sob reordenação a ordem inversa produz o mesmo estado que a ordem de emissão",
     "pending": false
@@ -297,6 +302,81 @@
   {
     "file": "./spec/unit/consumer_spec.rb",
     "name": "UltraSync::Consumer sob indisponibilidade retoma do mesmo offset quando a dependência volta",
+    "pending": false
+  },
+  {
+    "file": "./spec/unit/consumer_spec.rb",
+    "name": "UltraSync::Consumer — validação e elegibilidade reavaliação de elegibilidade NÃO emite decisão em duplicata nem em evento stale",
+    "pending": false
+  },
+  {
+    "file": "./spec/unit/consumer_spec.rb",
+    "name": "UltraSync::Consumer — validação e elegibilidade reavaliação de elegibilidade a decisão reflete a política da Ultra-rápida, não o status do Portal",
+    "pending": false
+  },
+  {
+    "file": "./spec/unit/consumer_spec.rb",
+    "name": "UltraSync::Consumer — validação e elegibilidade reavaliação de elegibilidade emite decisão quando a projeção avança",
+    "pending": false
+  },
+  {
+    "file": "./spec/unit/consumer_spec.rb",
+    "name": "UltraSync::Consumer — validação e elegibilidade validação contra o contrato aceita payload válido",
+    "pending": false
+  },
+  {
+    "file": "./spec/unit/consumer_spec.rb",
+    "name": "UltraSync::Consumer — validação e elegibilidade validação contra o contrato distingue tipo desconhecido de payload inválido",
+    "pending": false
+  },
+  {
+    "file": "./spec/unit/consumer_spec.rb",
+    "name": "UltraSync::Consumer — validação e elegibilidade validação contra o contrato rejeita payload que viola o schema, com o código correto",
+    "pending": false
+  },
+  {
+    "file": "./spec/unit/outbox_spec.rb",
+    "name": "UltraSync::Outbox atomicidade estado e evento nascem juntos",
+    "pending": false
+  },
+  {
+    "file": "./spec/unit/outbox_spec.rb",
+    "name": "UltraSync::Outbox atomicidade não existe estado sem evento correspondente",
+    "pending": false
+  },
+  {
+    "file": "./spec/unit/outbox_spec.rb",
+    "name": "UltraSync::Outbox atomicidade não existe evento sem estado correspondente",
+    "pending": false
+  },
+  {
+    "file": "./spec/unit/outbox_spec.rb",
+    "name": "UltraSync::Outbox classificação de canal (ADR-005) criação e alteração de perfil vão para a bulk-lane",
+    "pending": false
+  },
+  {
+    "file": "./spec/unit/outbox_spec.rb",
+    "name": "UltraSync::Outbox classificação de canal (ADR-005) todo tipo do ciclo de vida tem canal declarado",
+    "pending": false
+  },
+  {
+    "file": "./spec/unit/outbox_spec.rb",
+    "name": "UltraSync::Outbox classificação de canal (ADR-005) transição de status vai para o fast-lane",
+    "pending": false
+  },
+  {
+    "file": "./spec/unit/outbox_spec.rb",
+    "name": "UltraSync::Outbox geração de sequence escritores concorrentes no mesmo entregador recebem versões distintas",
+    "pending": false
+  },
+  {
+    "file": "./spec/unit/outbox_spec.rb",
+    "name": "UltraSync::Outbox geração de sequence incrementa monotonicamente por entregador",
+    "pending": false
+  },
+  {
+    "file": "./spec/unit/outbox_spec.rb",
+    "name": "UltraSync::Outbox geração de sequence é por entregador, não global — 300 mil entidades não contendem",
     "pending": false
   }
 ]

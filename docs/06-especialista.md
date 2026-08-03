@@ -14,18 +14,18 @@ Uma plataforma nova do ecossistema é um **consumer group adicional lendo um log
 
 ```mermaid
 flowchart LR
-    portal["<b>Portal</b><br/><i>escreve no outbox</i>"]
-    relay["<b>Relay</b>"]
+    portal["Portal<br/>escreve no outbox"]
+    relay["Relay"]
 
     subgraph log["Log durável"]
         status[["drivers.status.v1"]]
         profile[["drivers.profile.v1"]]
-        snap[["drivers.snapshot.v1<br/><i>compactado</i>"]]
+        snap[["drivers.snapshot.v1<br/>compactado"]]
     end
 
-    ultra["<b>Ultra-rápida</b><br/>consumer group A"]
-    novaA["<b>Plataforma N</b><br/>consumer group B"]
-    novaB["<b>Plataforma N+1</b><br/>consumer group C"]
+    ultra["Ultra-rápida<br/>consumer group A"]
+    novaA["Plataforma N<br/>consumer group B"]
+    novaB["Plataforma N+1<br/>consumer group C"]
 
     portal --> relay --> status & profile & snap
     status & profile --> ultra
@@ -69,11 +69,20 @@ Com 24 partições em `drivers.profile.v1` e 12 em `drivers.status.v1`, há folg
 
 ## 2. Disaster Recovery — 2 horas fora na Black Friday
 
-### A pergunta certa
+### A pergunta, e a ambiguidade dela
 
-O enunciado pede o plano para indisponibilidade total de 2 h, **evitando que um entregador recém-ativado fique impedido de trabalhar no dia**.
+O enunciado pede o plano para indisponibilidade total de 2 h, *"evitando que um entregador recém ativado trabalhe no dia"*.
 
-A segunda metade é o problema real, e ela não é resolvida por velocidade de recuperação. É resolvida por **ordem de recuperação**.
+Essa frase admite duas leituras opostas, e ambas descrevem um risco real:
+
+| Leitura | O que se quer evitar | Por que importa |
+|---|---|---|
+| **A** — "…fique impedido de trabalhar" | O entregador ativado durante o outage não consegue operar quando o sistema volta | Receita perdida para ele, capacidade perdida na Black Friday |
+| **B** — "…trabalhe indevidamente" | O entregador opera com estado incompleto, antes de o catch-up terminar | Entregador que foi ativado **e depois bloqueado** pode receber corrida na janela entre os dois eventos |
+
+Como não dá para saber qual foi a intenção, **o desenho responde às duas**. Elas não são alternativas — são as duas pontas do mesmo problema, e um plano de recuperação que resolva só uma está incompleto.
+
+A leitura A é resolvida por **ordem de recuperação**; a leitura B, por **critério de reativação**.
 
 ### Por que o desenho convencional falha aqui
 
@@ -93,13 +102,13 @@ O entregador espera o drain inteiro. Num dia em que cada hora parada é receita 
 flowchart TB
     subgraph antes["CANAL ÚNICO — o entregador espera o drain inteiro"]
         direction LR
-        b1["perfil<br/>14h00"] --> b2["perfil<br/>14h02"] --> b3["<b>ATIVAÇÃO</b><br/>14h05"] --> b4["perfil<br/>14h07"] --> b5["...milhares"]
+        b1["perfil<br/>14h00"] --> b2["perfil<br/>14h02"] --> b3["ATIVAÇÃO<br/>14h05"] --> b4["perfil<br/>14h07"] --> b5["...milhares"]
     end
 
     subgraph depois["CANAIS SEPARADOS — a ativação não espera nada"]
         direction TB
-        f1["<b>fast-lane</b><br/>drivers.status.v1<br/>baixo volume"] --> f2["<b>ATIVAÇÃO</b> aplicada<br/>em segundos"]
-        s1["<b>bulk-lane</b><br/>drivers.profile.v1<br/>2 h de backlog"] --> s2["drena no tempo<br/>que precisar"]
+        f1["fast-lane<br/>drivers.status.v1<br/>baixo volume"] --> f2["ATIVAÇÃO aplicada<br/>em segundos"]
+        s1["bulk-lane<br/>drivers.profile.v1<br/>2 h de backlog"] --> s2["drena no tempo<br/>que precisar"]
     end
 
     style b3 fill:#fce8e6,stroke:#ea4335,stroke-width:2px
@@ -109,6 +118,24 @@ flowchart TB
 O fast-lane carrega uma fração do volume. Após as mesmas 2 h, ele drena em **segundos**, enquanto a bulk-lane leva o tempo que precisar. A ativação chega; a mudança de raio de entrega chega quando chegar, e ninguém se importa.
 
 **Isso não é ajuste de incidente. É escolha de topologia feita meses antes**, e é a diferença entre o entregador trabalhar ou não naquele dia.
+
+### Leitura B — o entregador não deve operar com estado incompleto
+
+O fast-lane resolve a leitura A e **cria** o risco da leitura B. Drenar rápido significa aplicar a ativação depressa — inclusive quando existe, mais adiante no backlog, um bloqueio que ainda não chegou.
+
+O cenário concreto: entregador ativado às 14h05, bloqueado por fraude às 14h30, indisponibilidade até as 16h00. Na retomada, o fast-lane aplica a versão 5 (ativação) e, milissegundos depois, a 6 (bloqueio). Entre as duas existe uma janela em que ele está elegível — e num sistema que despacha continuamente, milissegundos bastam para uma oferta sair.
+
+Três mecanismos fecham isso, em ordem de custo:
+
+**1. A elegibilidade é reavaliada localmente, sobre o estado projetado.** Nada no evento "libera" o entregador; a `EligibilityPolicy` decide a partir do que está na projeção. Um entregador cuja projeção não recebeu a ativação simplesmente não é elegível — sem código especial de recuperação.
+
+**2. Despacho suspenso enquanto houver backlog no fast-lane.** Esta é a resposta direta à leitura B, e é uma decisão operacional, não de código: enquanto o lag do fast-lane for maior que zero, o motor de despacho **não considera ativações novas**. O entregador que já operava continua; o recém-ativado espera o fast-lane zerar.
+
+O custo é segundos — porque o fast-lane drena em segundos. Aplicar a mesma regra à bulk-lane custaria horas e seria inaceitável; é a separação de canais que torna esta política barata.
+
+**3. Ordem de aplicação por versão, que já existe.** Se os dois eventos forem aplicados, vence o de maior `sequence`. O estado final é sempre correto — a janela é de exposição, não de corrupção.
+
+> **Trade-off declarado.** O mecanismo 2 troca disponibilidade por segurança: um entregador legitimamente ativado espera alguns segundos a mais. Numa Black Friday, essa é a troca certa — o custo de um entregador bloqueado por fraude aceitar corridas é maior que o de um entregador legítimo esperar o fast-lane drenar. Se a operação discordar, o mecanismo é uma flag, não uma reescrita.
 
 ### Os três cenários
 

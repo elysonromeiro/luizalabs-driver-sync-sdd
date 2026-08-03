@@ -13,11 +13,11 @@ O sistema se apoia em cinco decisões encadeadas. A ordem importa: cada uma só 
 
 ```mermaid
 flowchart LR
-    A["<b>Estado completo</b><br/>evento carrega o<br/>entregador inteiro"]
-    B["<b>Versão monotônica</b><br/>ordem lógica em<br/>um predicado SQL"]
-    C["<b>Escrita condicional</b><br/>sem lock,<br/>sem lost update"]
-    D["<b>Canais por criticidade</b><br/>ativação não espera<br/>backlog de perfil"]
-    E["<b>Snapshot compactado</b><br/>fan-out sem custo<br/>para a fonte"]
+    A["Estado completo<br/>evento carrega o<br/>entregador inteiro"]
+    B["Versão monotônica<br/>ordem lógica em<br/>um predicado SQL"]
+    C["Escrita condicional<br/>sem lock,<br/>sem lost update"]
+    D["Canais por criticidade<br/>ativação não espera<br/>backlog de perfil"]
+    E["Snapshot compactado<br/>fan-out sem custo<br/>para a fonte"]
 
     A -->|habilita| B
     B -->|habilita| C
@@ -41,7 +41,7 @@ flowchart LR
 
 ### O que distingue esta entrega
 
-**As invariantes são executáveis.** Idempotência, comutatividade, monotonicidade e convergência não são afirmadas — são propriedades verificadas sobre qualquer sequência gerada. São **60 invariantes** na suíte.
+**As invariantes são executáveis.** Idempotência, comutatividade, monotonicidade e convergência não são afirmadas — são propriedades verificadas sobre qualquer sequência gerada. São **76 invariantes** na suíte.
 
 **Os guardrails foram sabotados de propósito.** `bin/sabotage` executa seis violações deliberadas e mostra a saída real de cada barreira. Qualquer avaliador clona e confere.
 
@@ -55,25 +55,25 @@ flowchart LR
 git clone https://github.com/elysonromeiro/luizalabs-driver-sync-sdd
 cd luizalabs-driver-sync-sdd/harness && bundle install
 
-bundle exec rspec        # 111 exemplos, sem nenhuma dependência externa
+bundle exec rspec        # 138 exemplos, sem nenhuma dependência externa
 ```
 
 Com Docker, acrescenta concorrência real e mensageria:
 
 ```bash
 docker compose up -d             # postgres:16 + kafka
-cd harness && bundle exec rspec  # 137 exemplos
+cd harness && bundle exec rspec  # 168 exemplos
 bin/sabotage                     # 6 violações deliberadas
 bin/mutate                       # 12 mutações
 ```
 
 | Verificação | Resultado |
 |---|---|
-| Suíte completa | **137 exemplos, 0 falhas** |
-| Invariantes | **60** |
+| Suíte completa | **168 exemplos, 0 falhas** |
+| Invariantes | **76** |
 | Mutações mortas | **12 / 12** |
 | Sabotagens barradas | **6 / 6** |
-| Links da documentação | **177, nenhum quebrado** |
+| Links da documentação | **179, nenhum quebrado** |
 
 ---
 
@@ -179,7 +179,7 @@ Cada uma com as alternativas descartadas e o motivo.
 | **Pilar 2** — `driver.updated` | [schema](contracts/schemas/driver.updated.schema.json) | exemplo validado |
 | **Pilar 2** — `driver.status_changed` | [schema](contracts/schemas/driver.status_changed.schema.json) | exemplo validado |
 | **Pilar 3** — Harness no CI | [05-ai-harness](docs/05-ai-harness.md) | seis jobs em duas velocidades |
-| **Pilar 3** — Testes de propriedade | [`spec/properties/`](harness/spec/properties) | 60 invariantes |
+| **Pilar 3** — Testes de propriedade | [`spec/properties/`](harness/spec/properties) | 76 invariantes |
 | **Pilar 3** — Impedir alteração de regra de despacho | [golden](harness/spec/golden/dispatch_cases.json) + [CODEOWNERS](.github/CODEOWNERS) | 18 casos congelados |
 | **Pilar 3** — Impedir corrupção de idempotência | propriedades + mutação | sabotagem 2 |
 | **Pilar 3** — Impedir race condition | [02-concorrencia](docs/02-concorrencia.md) | 20 entrelaçamentos enumerados |
@@ -188,6 +188,16 @@ Cada uma com as alternativas descartadas e o motivo.
 | **Especialista** — Reconciliação e catch-up | [ADR-010](docs/adr/010-reconciliacao-por-checksum.md) | paridade SQL × Ruby |
 | **Especialista** — Governança de dados | [06-especialista](docs/06-especialista.md) | `bin/schema_compat` |
 | **Segurança** | [04-seguranca](docs/04-seguranca.md) | — |
+
+### Divergências declaradas em relação ao enunciado
+
+| Enunciado | Aqui | Motivo |
+|---|---|---|
+| "RSpec/FactoryBot" | RSpec + fábricas próprias | Testes de propriedade exigem reprodução por seed; FactoryBot não oferece |
+| Core em Ruby on Rails | Harness em Ruby puro | Nenhuma invariante é sobre o ORM; o SQL do Rails está documentado em [02-concorrencia](docs/02-concorrencia.md) |
+| "C4 Model ou diagrama sequencial/de blocos" | Blocos e sequência | Os blocos C4 do Mermaid são experimentais e renderizam de forma inconsistente no GitHub |
+
+Detalhado em [`harness/README.md`](harness/README.md).
 
 ### O que este desenho não resolve
 

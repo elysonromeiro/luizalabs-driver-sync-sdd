@@ -236,10 +236,28 @@ paths:
         Republica o último evento conhecido do entregador **preservando `id` e
         `sequence` originais**.
 
-        Preservar o `id` é o que torna a operação segura: um consumidor que já
+        Preservar o `id` é o que torna a operação idempotente: um consumidor que já
         processou o evento vai deduplicá-lo e ignorar; um que nunca o recebeu vai
         aplicá-lo. Gerar um `id` novo criaria um fato duplicado no log e quebraria a
         auditoria de "quantas vezes este entregador mudou".
+
+        ### Limite conhecido
+
+        Essa mesma propriedade cria um caso que o resync **não** repara: um
+        consumidor que perdeu a projeção mas manteve a tabela de deduplicação. O
+        evento reemitido é reconhecido como duplicata e descartado, e o entregador
+        continua ausente.
+
+        Não é hipotético — é o resultado de restaurar backup parcial, ou de truncar a
+        projeção sem truncar `processed_events`.
+
+        O remédio é `?force=true`, que instrui o consumidor a ignorar a deduplicação
+        para este `driver_id` específico. Ele é deliberadamente restrito a um
+        entregador por chamada: aplicado em massa, reintroduziria o reprocessamento
+        que a deduplicação existe para evitar.
+
+        Para perda ampla de projeção, o caminho correto não é o resync — é o
+        bootstrap pelo tópico compactado, que custa zero ao Portal.
 
         Ferramenta de reparo pontual, para quando os checksums acusam divergência em
         poucos entregadores e não compensa acionar o feed de reconciliação.
@@ -248,6 +266,15 @@ paths:
           in: path
           required: true
           schema: { type: string, format: uuid }
+        - name: force
+          in: query
+          description: |
+            Instrui o consumidor a ignorar a deduplicação para este entregador.
+            Necessário quando a projeção foi perdida mas `processed_events`
+            sobreviveu — caso em que o resync normal é um no-op silencioso.
+
+            Restrito a um entregador por chamada, e registrado em auditoria.
+          schema: { type: boolean, default: false }
       security:
         - oauth2: [drivers.read, drivers.operate]
       responses:

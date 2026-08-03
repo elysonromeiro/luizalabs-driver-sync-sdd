@@ -2,7 +2,9 @@ name: driver-sync-sdd
 
 services:
   postgres:
-    image: postgres:16
+    # Fixada por digest, não por tag móvel: docs/04-seguranca.md declara isso
+    # como prática, e prática declarada e não seguida é pior que ausente.
+    image: postgres@sha256:5d143123fdf80462d1778cd4f24b9f7ca13c87174bca19141fb194c5a1ebca59
     container_name: driver-sync-postgres
     environment:
       POSTGRES_USER: ultra
@@ -26,7 +28,7 @@ services:
       - /var/lib/postgresql/data
 
   kafka:
-    image: apache/kafka:3.9.0
+    image: apache/kafka@sha256:fbc7d7c428e3755cf36518d4976596002477e4c052d1f80b5b9eafd06d0fff2f
     container_name: driver-sync-kafka
     ports:
       - "59092:9092"

@@ -34,7 +34,9 @@ O relay é o **único** principal com permissão de escrita nos canais de ciclo 
 
 ACL cobre o atacante externo. Não cobre o comprometimento do próprio relay.
 
-**Assinatura no envelope.** O relay assina o evento (JWS sobre os atributos canônicos mais o digest do payload) com uma chave que só ele possui, guardada em KMS e nunca em disco. O consumidor verifica antes de aplicar. Assinatura inválida ou ausente é dead letter com código dedicado, e alerta imediato — não é cenário tolerável.
+**Assinatura no envelope.** O relay assina o evento (JWS sobre os atributos canônicos mais o digest do payload) com uma chave que só ele possui, guardada em KMS e nunca em disco. O consumidor verifica antes de aplicar. Assinatura inválida ou ausente é dead letter com o código `invalid_signature`, e alerta imediato — não é cenário tolerável.
+
+> Este código foi acrescentado ao contrato em revisão. Ele era prometido aqui e **não existia** no enum de `dead-letter.schema.json` — promessa de segurança não cumprida é pior que ausente, porque quem lê o contrato acredita que a proteção existe. A verificação de assinatura em si permanece desenho, não implementação: o harness não tem KMS.
 
 Isso não impede um relay comprometido de assinar mentiras. Impede que *outra coisa* que tenha ganhado acesso de escrita ao tópico produza um evento aceito, o que é o cenário muito mais provável.
 
@@ -82,8 +84,8 @@ A paginação por keyset foi escolhida por desempenho ([openapi.yaml](../contrac
 ## Segredos e cadeia de suprimentos
 
 - Credenciais e chaves em KMS, injetadas em runtime. Nada de segredo em imagem, variável de ambiente commitada ou arquivo de configuração.
-- `Gemfile.lock` versionado e verificação de vulnerabilidade (`bundler-audit`) no CI.
-- Imagens fixadas por digest, não por tag móvel.
+- `Gemfile.lock` versionado e verificação de vulnerabilidade (`bundler-audit`) no CI, no job `fast`.
+- Imagens fixadas por digest, não por tag móvel — inclusive no `docker-compose.yml` e nos service containers do CI.
 - Dependência nova em path crítico exige revisão humana via CODEOWNERS — o mesmo mecanismo que protege as invariantes contra código gerado por IA ([05-ai-harness.md](05-ai-harness.md)).
 
 Esse último ponto merece registro: num repositório onde agentes de IA geram código, **a cadeia de suprimentos inclui o agente**. Uma dependência introduzida por sugestão automática tem o mesmo peso de uma escolhida por uma pessoa, e passa pela mesma porta.

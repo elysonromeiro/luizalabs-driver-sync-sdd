@@ -74,25 +74,25 @@ flowchart LR
     req(["Requisito<br/>de negócio"])
 
     subgraph contrato["CONTRATO"]
-        modeler["<b>event-modeler</b><br/>requisito → evento"]
-        guardian["<b>spec-guardian</b><br/>compat + versão"]
+        modeler["event-modeler<br/>requisito → evento"]
+        guardian["spec-guardian<br/>compat + versão"]
     end
 
     subgraph impl["IMPLEMENTAÇÃO"]
-        code["<b>agente principal</b><br/>escreve o código"]
+        code["agente principal<br/>escreve o código"]
     end
 
     subgraph verif["VERIFICAÇÃO — read-only"]
-        prover["<b>invariant-prover</b><br/>qual invariante corre risco"]
-        auditor["<b>concurrency-auditor</b><br/>corridas no diff"]
-        runner["<b>harness-runner</b><br/>roda e reporta"]
+        prover["invariant-prover<br/>qual invariante corre risco"]
+        auditor["concurrency-auditor<br/>corridas no diff"]
+        runner["harness-runner<br/>roda e reporta"]
     end
 
     subgraph adv["ADVERSARIAL"]
-        red["<b>guardrail-redteam</b><br/>como burlar isto?"]
+        red["guardrail-redteam<br/>como burlar isto?"]
     end
 
-    adr["<b>adr-writer</b><br/>registra o trade-off"]
+    adr["adr-writer<br/>registra o trade-off"]
     pr(["Pull Request<br/>revisão humana"])
 
     req --> modeler --> guardian --> code

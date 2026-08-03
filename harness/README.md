@@ -25,8 +25,8 @@ bundle exec rspec --tag pg
 
 | Modo | Exemplos | Tempo |
 |---|---|---|
-| Sem Docker | 111 | ~2 s |
-| Com Postgres e Kafka | 137 | ~14 s |
+| Sem Docker | 138 | ~2 s |
+| Com Postgres e Kafka | 168 | ~14 s |
 
 ## O que cada camada prova
 
@@ -112,6 +112,16 @@ bin/check_docs          # links da documentação
 ```
 
 `bin/sabotage` é o mais direto de conferir: executa seis violações reais, mostra a saída de cada barreira e reverte tudo ao fim, inclusive sob Ctrl-C.
+
+## Duas divergências do enunciado, declaradas
+
+O enunciado cita **RSpec/FactoryBot** e diz que o core é **Ruby on Rails**. Este harness usa RSpec, mas não FactoryBot nem ActiveRecord. As duas escolhas são deliberadas e vale dizer por quê, em vez de esperar que passem despercebidas.
+
+**Fábricas próprias em vez de FactoryBot.** Os testes de propriedade precisam ser **reprodutíveis a partir de uma seed** — sem isso, uma falha não é diagnosticável. Toda geração aqui passa por um `Random` explícito, e a seed é reportada no contraexemplo. FactoryBot gera valores por sequência global e `Faker`, que não se reproduz a partir de seed. Trocar o determinismo pela conveniência do DSL seria caro no lugar errado.
+
+**Ruby puro em vez de ActiveRecord.** O harness existe para tornar as invariantes executáveis, e nenhuma delas é sobre o ORM. Usar ActiveRecord acrescentaria migrations, um `Rails.application` e tempo de boot ao que hoje roda em dois segundos sem dependência nenhuma — e quem avalia precisa conseguir clonar e rodar.
+
+O que é específico do Rails aparece onde deve: `docs/02-concorrencia.md` mostra o `upsert_all`, o `insert_all` e o `includes` reais, com o antes e o depois de N+1. O `Store::Postgres` usa a gem `pg` direto, então o SQL que o documento defende é o SQL que a suíte executa — sem a camada do ORM no meio, que aliás é o que permite o `ON CONFLICT ... WHERE` que o `upsert_all` não expõe.
 
 ## Paths protegidos
 

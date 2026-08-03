@@ -1,9 +1,11 @@
 # frozen_string_literal: true
 
 require "set"
+require "concurrent"
 
 require_relative "ultra_sync/generated/driver_state"
 require_relative "ultra_sync/event"
+require_relative "ultra_sync/schema_validator"
 require_relative "ultra_sync/store/memory"
 require_relative "ultra_sync/event_applier"
 require_relative "ultra_sync/backoff"
@@ -12,6 +14,7 @@ require_relative "ultra_sync/consumer"
 require_relative "ultra_sync/eligibility_policy"
 require_relative "ultra_sync/dispatch_rules"
 require_relative "ultra_sync/batch_processor"
+require_relative "ultra_sync/outbox"
 require_relative "ultra_sync/reconciliation"
 
 # Motor de Sincronização de Entregadores — harness executável.

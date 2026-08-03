@@ -4,7 +4,12 @@
   "title": "Dead letter",
   "description": "Envelope de um evento que o consumidor não conseguiu processar e não conseguirá processar em retentativa. A DLQ deste sistema é reservada a falhas PERMANENTES do payload — schema inválido, tipo desconhecido, referência que nunca resolverá. Indisponibilidade de dependência NÃO produz dead letter: nesse caso o circuit breaker pausa o consumer group e o log do broker segura a fila, preservando ordem e evitando trabalho de replay. Ver ADR-008. Consequência operacional: mensagem nova na DLQ é sempre defeito de contrato ou de código, nunca ruído de infraestrutura — o que a torna alertável sem falso positivo.",
   "type": "object",
-  "required": ["dead_lettered_at", "consumer", "failure", "original_event"],
+  "required": [
+    "dead_lettered_at",
+    "consumer",
+    "failure",
+    "original_event"
+  ],
   "additionalProperties": false,
   "properties": {
     "dead_lettered_at": {
@@ -15,7 +20,9 @@
     "consumer": {
       "description": "Consumer group que falhou. Identifica o dono da investigação num cenário de fan-out com N consumidores.",
       "type": "string",
-      "examples": ["ultra-rapida.driver-sync"]
+      "examples": [
+        "ultra-rapida.driver-sync"
+      ]
     },
     "failure": {
       "$ref": "#/$defs/Failure"
@@ -33,17 +40,22 @@
   "$defs": {
     "Failure": {
       "type": "object",
-      "required": ["code", "message", "attempts"],
+      "required": [
+        "code",
+        "message",
+        "attempts"
+      ],
       "additionalProperties": false,
       "properties": {
         "code": {
-          "description": "Taxonomia fechada da causa. Toda entrada é permanente por definição — não existe código para falha transitória, e essa ausência é intencional.",
+          "description": "Taxonomia fechada da causa. Toda entrada é permanente por definição — não existe código para falha transitória, e essa ausência é intencional.\n\n`invalid_signature` cobre assinatura ausente ou que não verifica contra a chave do relay. É o único código que também é sinal de segurança, não apenas de defeito: um evento assinado incorretamente indica tentativa de forjar fato, não produtor desatualizado. Ver docs/04-seguranca.md.",
           "enum": [
             "schema_validation_failed",
             "malformed_payload",
             "unknown_event_type",
             "unsupported_schema_version",
             "missing_required_reference",
+            "invalid_signature",
             "policy_evaluation_error"
           ]
         },
@@ -62,11 +74,18 @@
           "type": "array",
           "items": {
             "type": "object",
-            "required": ["pointer", "detail"],
+            "required": [
+              "pointer",
+              "detail"
+            ],
             "additionalProperties": false,
             "properties": {
-              "pointer": { "type": "string" },
-              "detail": { "type": "string" }
+              "pointer": {
+                "type": "string"
+              },
+              "detail": {
+                "type": "string"
+              }
             }
           }
         },
@@ -82,7 +101,10 @@
         },
         "source_topic": {
           "type": "string",
-          "examples": ["drivers.status.v1", "drivers.profile.v1"]
+          "examples": [
+            "drivers.status.v1",
+            "drivers.profile.v1"
+          ]
         }
       }
     }
