@@ -321,10 +321,17 @@ components:
           description: Total de faixas usado no particionamento.
         algorithm:
           type: string
-          enum: [bit_xor_md5_driver_sequence]
+          enum: [bit_xor_md5_driver_sequence_64]
           description: |
-            `bit_xor` sobre `md5(driver_id || ':' || sequence)`. Independente de ordem,
-            o que dispensa ordenação nos dois lados da comparação.
+            `bit_xor` sobre os 64 bits mais significativos de
+            `md5(driver_id || ':' || source_version)`. Independente de ordem, o que
+            dispensa ordenação nos dois lados da comparação.
+
+            Transportado como **hexadecimal de 16 caracteres**, não como número.
+            O motivo é concreto: `bigint` do Postgres tem sinal e Integer do Ruby
+            não, então o mesmo XOR vira `-2650426647071125052` de um lado e
+            `15796317426638426564` do outro. Texto elimina a ambiguidade de
+            representação para qualquer consumidor.
         computed_at: { type: string, format: date-time }
         items:
           type: array
@@ -336,7 +343,7 @@ components:
               driver_count: { type: integer, minimum: 0 }
               checksum:
                 type: string
-                pattern: '^[0-9a-f]{32}$'
+                pattern: '^[0-9a-f]{16}$'
 
     DriverPage:
       type: object

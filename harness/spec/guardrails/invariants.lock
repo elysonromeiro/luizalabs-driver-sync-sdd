@@ -210,6 +210,51 @@
     "pending": false
   },
   {
+    "file": "./spec/reconciliation/checksum_spec.rb",
+    "name": "UltraSync::Reconciliation checksum muda quando qualquer versão muda",
+    "pending": false
+  },
+  {
+    "file": "./spec/reconciliation/checksum_spec.rb",
+    "name": "UltraSync::Reconciliation checksum é independente da ordem — é isso que dispensa ordenar os dois lados",
+    "pending": false
+  },
+  {
+    "file": "./spec/reconciliation/checksum_spec.rb",
+    "name": "UltraSync::Reconciliation detecção de divergência aponta exatamente a faixa divergente, e só ela",
+    "pending": false
+  },
+  {
+    "file": "./spec/reconciliation/checksum_spec.rb",
+    "name": "UltraSync::Reconciliation detecção de divergência não acusa divergência quando os dois lados estão em dia",
+    "pending": false
+  },
+  {
+    "file": "./spec/reconciliation/pg_parity_spec.rb",
+    "name": "Reconciliação: paridade entre Ruby e SQL a expressão SQL produz o mesmo checksum que o cálculo em Ruby",
+    "pending": false
+  },
+  {
+    "file": "./spec/reconciliation/pg_parity_spec.rb",
+    "name": "Reconciliação: paridade entre Ruby e SQL as faixas coincidem entregador a entregador",
+    "pending": false
+  },
+  {
+    "file": "./spec/reconciliation/pg_parity_spec.rb",
+    "name": "Reconciliação: paridade entre Ruby e SQL drift real aparece como divergência de faixa, e só nela",
+    "pending": false
+  },
+  {
+    "file": "./spec/reconciliation/pg_parity_spec.rb",
+    "name": "Reconciliação: paridade entre Ruby e SQL keyset pagination percorre a base inteira sem repetir nem pular registro",
+    "pending": false
+  },
+  {
+    "file": "./spec/reconciliation/pg_parity_spec.rb",
+    "name": "Reconciliação: paridade entre Ruby e SQL keyset pagination usa o índice em vez de varrer a tabela",
+    "pending": false
+  },
+  {
     "file": "./spec/unit/batch_processor_spec.rb",
     "name": "UltraSync::BatchProcessor#collapse a ordem canônica independe da ordem de chegada",
     "pending": false

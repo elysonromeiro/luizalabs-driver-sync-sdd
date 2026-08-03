@@ -161,4 +161,4 @@ A garantia vem de duas propriedades desenhadas antes: estado completo ([ADR-013]
 - [ADR-008](adr/008-backpressure.md) — pausar em vez de falhar rápido
 - [ADR-002](adr/002-outbox-vs-cdc.md) — o lado do produtor
 - [02-concorrencia.md](02-concorrencia.md) — idempotência que sustenta a retentativa
-- `docs/06-especialista.md` — recuperação de indisponibilidade longa
+- [06-especialista.md](06-especialista.md) — recuperação de indisponibilidade longa
