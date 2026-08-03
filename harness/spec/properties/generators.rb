@@ -115,10 +115,20 @@ module Generators
     drivers.flat_map do |driver_id|
       count = 1 + rng.rand(max_events_per_driver)
       (1..count).map do |sequence|
+        # `driver.created` tem `sequence` const "1" no contrato — é o primeiro
+        # fato registrado sobre um entregador. Sortear o tipo livremente
+        # produzia :created com sequence 3, que o schema RECUSARIA.
+        #
+        # Isso significava que as invariantes rodavam sobre eventos que a
+        # produção nunca veria. Encontrado em revisão: o spec de conformidade
+        # cobria as fábricas e não o gerador, que é o ponto cego óbvio em
+        # retrospecto — o gerador é justamente o que produz volume.
+        kind = sequence == 1 ? :created : %i[updated status_changed][rng.rand(2)]
+
         Factories.event(
           driver_id: driver_id,
           sequence:  sequence,
-          kind:      %i[created updated status_changed][rng.rand(3)],
+          kind:      kind,
           rng:       rng,
           state:     Factories.driver_state(
             driver_id: driver_id,

@@ -22,10 +22,20 @@ module UltraSync
       return Result.new(applied: [], duplicates: [], stale: []) if events.empty?
 
       @store.transaction do
+        # 0. Duplicata DENTRO do lote. Nem o `ON CONFLICT DO NOTHING` do
+        #    Postgres nem o adapter em memória distinguem isso: os dois
+        #    colapsam repetições da mesma chave na mesma instrução e devolvem
+        #    a chave uma vez só. O resultado seria contabilizar as repetições
+        #    como novas, e `process` deixaria de ser equivalente a aplicar
+        #    evento a evento — que é a propriedade de convergência que o
+        #    harness assere.
+        seen = Set.new
+        first_occurrence, repeated = events.partition { |e| seen.add?([e.source, e.id]) }
+
         # 1. Reivindica todos os event_ids de uma vez. Devolve só os novos.
-        claimed_ids = @store.claim_all(events.map { |e| [e.source, e.id] }).to_set
-        fresh       = events.select { |e| claimed_ids.include?(e.id) }
-        duplicates  = events.reject { |e| claimed_ids.include?(e.id) }
+        claimed_ids = @store.claim_all(first_occurrence.map { |e| [e.source, e.id] }).to_set
+        fresh       = first_occurrence.select { |e| claimed_ids.include?(e.id) }
+        duplicates  = first_occurrence.reject { |e| claimed_ids.include?(e.id) } + repeated
 
         next Result.new(applied: [], duplicates: duplicates, stale: []) if fresh.empty?
 

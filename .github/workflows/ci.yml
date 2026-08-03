@@ -1,0 +1,193 @@
+name: CI
+
+# O pipeline é a camada DETECTIVA dos guardrails (docs/05-ai-harness.md).
+#
+# Estrutura em duas velocidades, deliberada: `fast` fecha em cerca de um
+# minuto e é o que dá retorno ao desenvolvedor; o resto roda em paralelo e
+# pode demorar. Um CI que leva quinze minutos para dizer qualquer coisa é um
+# CI que as pessoas aprendem a ignorar enquanto continuam trabalhando — e o
+# guardrail que chega tarde demais protege menos do que parece.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  BUNDLE_PATH: vendor/bundle
+
+jobs:
+  # --------------------------------------------------------------------
+  # Retorno rápido. Sem serviços, sem Docker.
+  # --------------------------------------------------------------------
+  fast:
+    name: Suíte rápida
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.2"
+          bundler-cache: true
+          working-directory: harness
+      - name: Sintaxe
+        working-directory: harness
+        run: find lib spec bin -type f \( -name '*.rb' -o -path 'bin/*' \) -exec ruby -c {} \; > /dev/null
+      - name: Suíte sem dependências externas
+        working-directory: harness
+        run: bundle exec rspec --tag ~pg --tag ~kafka
+      # docs/04-seguranca.md promete esta verificação. Estava só na prosa até
+      # a revisão — promessa de segurança não cumprida é pior que ausente,
+      # porque quem lê acredita que existe.
+      - name: Vulnerabilidades conhecidas nas dependências
+        working-directory: harness
+        run: |
+          gem install bundler-audit --no-document
+          bundle-audit check --update
+
+  # --------------------------------------------------------------------
+  # Spec-driven: o código não pode divergir do contrato.
+  # --------------------------------------------------------------------
+  contracts:
+    name: Contratos
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0        # schema_compat compara com a branch base
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.2"
+          bundler-cache: true
+          working-directory: harness
+      - name: Código gerado em dia com o contrato
+        working-directory: harness
+        run: bin/generate --check
+      - name: Compatibilidade BACKWARD
+        working-directory: harness
+        env:
+          BASE_REF: origin/${{ github.base_ref || 'main' }}
+        run: bin/schema_compat
+      - name: Conformidade dos exemplos
+        working-directory: harness
+        run: bundle exec rspec spec/contracts
+
+  # --------------------------------------------------------------------
+  # Concorrência real. Postgres como service container.
+  # --------------------------------------------------------------------
+  postgres:
+    name: Concorrência (Postgres)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres@sha256:5d143123fdf80462d1778cd4f24b9f7ca13c87174bca19141fb194c5a1ebca59
+        env:
+          POSTGRES_USER: ultra
+          POSTGRES_PASSWORD: ultra
+          POSTGRES_DB: ultra_sync_test
+        ports: ["55432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U ultra -d ultra_sync_test"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.2"
+          bundler-cache: true
+          working-directory: harness
+      - name: Specs :pg
+        working-directory: harness
+        run: bundle exec rspec --tag pg
+
+  # --------------------------------------------------------------------
+  # Backpressure e compaction contra broker real.
+  # --------------------------------------------------------------------
+  kafka:
+    name: Mensageria (Kafka)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.2"
+          bundler-cache: true
+          working-directory: harness
+      # Kafka sobe por compose e não como service container: as configurações
+      # de log cleaner que tornam o teste de compaction rápido vivem no
+      # docker-compose.yml, e duplicá-las aqui criaria duas verdades sobre a
+      # mesma configuração.
+      - name: Sobe o broker
+        run: |
+          docker compose up -d kafka
+          for i in $(seq 1 60); do
+            [ "$(docker inspect -f '{{.State.Health.Status}}' driver-sync-kafka)" = "healthy" ] && break
+            sleep 2
+          done
+      - name: Specs :kafka
+        working-directory: harness
+        run: bundle exec rspec --tag kafka
+      - name: Logs do broker em caso de falha
+        if: failure()
+        run: docker compose logs kafka | tail -100
+
+  # --------------------------------------------------------------------
+  # Os testes testam de fato? Mutação responde.
+  # --------------------------------------------------------------------
+  mutation:
+    name: Mutação
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.2"
+          bundler-cache: true
+          working-directory: harness
+      - name: Toda mutação precisa ser morta
+        working-directory: harness
+        run: bin/mutate
+
+  # --------------------------------------------------------------------
+  # Meta-guardrails: as proteções ainda existem?
+  # --------------------------------------------------------------------
+  guardrails:
+    name: Guardrails
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0        # coupled_change precisa do histórico
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.2"
+          bundler-cache: true
+          working-directory: harness
+      - name: Nenhuma invariante removida ou desabilitada
+        working-directory: harness
+        run: bin/test_inventory --check
+      - name: Caminho crítico alterado sem teste
+        working-directory: harness
+        env:
+          BASE_REF: origin/${{ github.base_ref || 'main' }}
+        run: bin/coupled_change
+      - name: Meta-testes
+        working-directory: harness
+        run: bundle exec rspec spec/guardrails
+      - name: Documentação sem link quebrado
+        working-directory: harness
+        run: bin/check_docs
+      - name: Roteiro de sabotagem — toda violação precisa ser barrada
+        working-directory: harness
+        run: bin/sabotage

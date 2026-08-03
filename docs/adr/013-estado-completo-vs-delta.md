@@ -37,7 +37,7 @@ Com estado completo, aplicar um evento é atribuição idempotente condicionada 
 
 A terceira linha é a que mais importa na prática: com estado completo, **o sistema se autocorrige**. Uma falha que perca um evento é reparada pelo evento seguinte daquele entregador, sem intervenção.
 
-**Habilita a compaction.** O tópico `drivers.snapshot.v1` (ADR-009) só funciona porque a última mensagem por chave já é o estado inteiro. Com delta, a mensagem retida seria um fragmento sem sentido isolado, e o bootstrap de consumidor novo teria de voltar ao banco do Portal — perdendo o desacoplamento que justifica toda a arquitetura.
+**Habilita a compaction.** O tópico `drivers.snapshot.v1` ([ADR-009](009-snapshot-compactado.md)) só funciona porque a última mensagem por chave já é o estado inteiro. Com delta, a mensagem retida seria um fragmento sem sentido isolado, e o bootstrap de consumidor novo teria de voltar ao banco do Portal — perdendo o desacoplamento que justifica toda a arquitetura.
 
 **Habilita a separação de canais.** Eventos de status e de perfil vivem em tópicos distintos ([ADR-005](005-fast-lane.md)) e portanto podem ser aplicados fora de ordem entre si. Isso só é seguro porque ambos carregam estado completo e compartilham o mesmo espaço de versão: vence o de maior `sequence`. Com delta, dividir canais seria um defeito de corretude.
 
@@ -65,4 +65,4 @@ Em 300 mil entregadores com uma média de poucas mudanças mensais por entregado
 
 - [ADR-003](003-ordenacao-por-versao.md) — ordenação por versão
 - [ADR-005](005-fast-lane.md) — separação de canais
-- ADR-009 — snapshot compactado
+- [ADR-009](009-snapshot-compactado.md) — snapshot compactado

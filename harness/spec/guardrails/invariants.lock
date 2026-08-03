@@ -1,0 +1,382 @@
+[
+  {
+    "file": "./spec/concurrency/interleaving_spec.rb",
+    "name": "Invariante: ausência de lost update a escrita condicional preserva a versão maior em TODOS os entrelaçamentos",
+    "pending": false
+  },
+  {
+    "file": "./spec/concurrency/interleaving_spec.rb",
+    "name": "Invariante: ausência de lost update o read-modify-write ingênuo perde a atualização em ao menos um entrelaçamento",
+    "pending": false
+  },
+  {
+    "file": "./spec/concurrency/pg_batch_spec.rb",
+    "name": "Postgres: processamento em lote ausência de N+1 emite um número constante de queries, independentemente do tamanho do lote",
+    "pending": false
+  },
+  {
+    "file": "./spec/concurrency/pg_batch_spec.rb",
+    "name": "Postgres: processamento em lote ausência de N+1 o anti-padrão cresce linearmente — é isso que o lote evita",
+    "pending": false
+  },
+  {
+    "file": "./spec/concurrency/pg_lost_update_spec.rb",
+    "name": "Postgres: lost update sob READ COMMITTED a escrita condicional PRESERVA a versão maior no mesmo entrelaçamento",
+    "pending": false
+  },
+  {
+    "file": "./spec/concurrency/pg_lost_update_spec.rb",
+    "name": "Postgres: lost update sob READ COMMITTED o UPDATE condicional serializa escritores concorrentes pelo lock de linha",
+    "pending": false
+  },
+  {
+    "file": "./spec/concurrency/pg_lost_update_spec.rb",
+    "name": "Postgres: lost update sob READ COMMITTED read-modify-write ingênuo PERDE a versão maior",
+    "pending": false
+  },
+  {
+    "file": "./spec/concurrency/stress_spec.rb",
+    "name": "Concorrência: colisão real com threads N threads escrevendo o mesmo entregador convergem para a maior versão",
+    "pending": false
+  },
+  {
+    "file": "./spec/concurrency/stress_spec.rb",
+    "name": "Concorrência: colisão real com threads aplica cada evento exatamente uma vez sob reentrega concorrente",
+    "pending": false
+  },
+  {
+    "file": "./spec/concurrency/stress_spec.rb",
+    "name": "Concorrência: colisão real com threads entregadores distintos não contendem entre si",
+    "pending": false
+  },
+  {
+    "file": "./spec/golden/golden_spec.rb",
+    "name": "Golden: regras de elegibilidade e despacho despacho distância acima do raio é recusada",
+    "pending": false
+  },
+  {
+    "file": "./spec/golden/golden_spec.rb",
+    "name": "Golden: regras de elegibilidade e despacho despacho distância exatamente igual ao raio é aceita",
+    "pending": false
+  },
+  {
+    "file": "./spec/golden/golden_spec.rb",
+    "name": "Golden: regras de elegibilidade e despacho despacho entregador inelegível não recebe oferta, ainda que ela caiba",
+    "pending": false
+  },
+  {
+    "file": "./spec/golden/golden_spec.rb",
+    "name": "Golden: regras de elegibilidade e despacho despacho oferta compatível é aceita",
+    "pending": false
+  },
+  {
+    "file": "./spec/golden/golden_spec.rb",
+    "name": "Golden: regras de elegibilidade e despacho despacho peso acima da capacidade é recusado",
+    "pending": false
+  },
+  {
+    "file": "./spec/golden/golden_spec.rb",
+    "name": "Golden: regras de elegibilidade e despacho despacho peso exatamente igual à capacidade é aceito",
+    "pending": false
+  },
+  {
+    "file": "./spec/golden/golden_spec.rb",
+    "name": "Golden: regras de elegibilidade e despacho despacho recusas acumulam quando há mais de um impedimento",
+    "pending": false
+  },
+  {
+    "file": "./spec/golden/golden_spec.rb",
+    "name": "Golden: regras de elegibilidade e despacho despacho segmento não habilitado é recusado",
+    "pending": false
+  },
+  {
+    "file": "./spec/golden/golden_spec.rb",
+    "name": "Golden: regras de elegibilidade e despacho elegibilidade aguardando aprovação não é elegível",
+    "pending": false
+  },
+  {
+    "file": "./spec/golden/golden_spec.rb",
+    "name": "Golden: regras de elegibilidade e despacho elegibilidade background check reprovado bloqueia",
+    "pending": false
+  },
+  {
+    "file": "./spec/golden/golden_spec.rb",
+    "name": "Golden: regras de elegibilidade e despacho elegibilidade bicicleta não é aceita pela Ultra-rápida",
+    "pending": false
+  },
+  {
+    "file": "./spec/golden/golden_spec.rb",
+    "name": "Golden: regras de elegibilidade e despacho elegibilidade documento vencido bloqueia",
+    "pending": false
+  },
+  {
+    "file": "./spec/golden/golden_spec.rb",
+    "name": "Golden: regras de elegibilidade e despacho elegibilidade entregador PJ ativo e regular é elegível",
+    "pending": false
+  },
+  {
+    "file": "./spec/golden/golden_spec.rb",
+    "name": "Golden: regras de elegibilidade e despacho elegibilidade entregador bloqueado não é elegível",
+    "pending": false
+  },
+  {
+    "file": "./spec/golden/golden_spec.rb",
+    "name": "Golden: regras de elegibilidade e despacho elegibilidade múltiplas violações são reportadas todas juntas",
+    "pending": false
+  },
+  {
+    "file": "./spec/golden/golden_spec.rb",
+    "name": "Golden: regras de elegibilidade e despacho elegibilidade pessoa física é rejeitada mesmo com tudo em ordem",
+    "pending": false
+  },
+  {
+    "file": "./spec/golden/golden_spec.rb",
+    "name": "Golden: regras de elegibilidade e despacho elegibilidade raio zero não é elegível",
+    "pending": false
+  },
+  {
+    "file": "./spec/golden/golden_spec.rb",
+    "name": "Golden: regras de elegibilidade e despacho elegibilidade sem segmento habilitado não é elegível",
+    "pending": false
+  },
+  {
+    "file": "./spec/golden/golden_spec.rb",
+    "name": "Golden: regras de elegibilidade e despacho todo caso golden declara sua intenção",
+    "pending": false
+  },
+  {
+    "file": "./spec/messaging/fast_lane_spec.rb",
+    "name": "Kafka: fast-lane não espera a bulk-lane eventos do mesmo entregador em canais distintos convergem",
+    "pending": false
+  },
+  {
+    "file": "./spec/properties/commutativity_property_spec.rb",
+    "name": "Invariante: comutatividade sob reordenação a ordem inversa produz o mesmo estado que a ordem de emissão",
+    "pending": false
+  },
+  {
+    "file": "./spec/properties/commutativity_property_spec.rb",
+    "name": "Invariante: comutatividade sob reordenação apply(S) == apply(shuffle(S)), para qualquer S",
+    "pending": false
+  },
+  {
+    "file": "./spec/properties/commutativity_property_spec.rb",
+    "name": "Invariante: comutatividade sob reordenação entregar em ordem reduz o volume de eventos descartados como stale",
+    "pending": false
+  },
+  {
+    "file": "./spec/properties/convergence_property_spec.rb",
+    "name": "Invariante: convergência entre consumidores N réplicas com o mesmo conjunto convergem, qualquer que seja a ordem",
+    "pending": false
+  },
+  {
+    "file": "./spec/properties/convergence_property_spec.rb",
+    "name": "Invariante: convergência entre consumidores o lote classifica duplicatas como o processamento individual classificaria",
+    "pending": false
+  },
+  {
+    "file": "./spec/properties/convergence_property_spec.rb",
+    "name": "Invariante: convergência entre consumidores processamento em lote converge com processamento individual",
+    "pending": false
+  },
+  {
+    "file": "./spec/properties/convergence_property_spec.rb",
+    "name": "Invariante: convergência entre consumidores replay completo converge com consumo contínuo",
+    "pending": false
+  },
+  {
+    "file": "./spec/properties/idempotency_property_spec.rb",
+    "name": "Invariante: idempotência apply(S) == apply(S ++ duplicatas(S)), para qualquer S",
+    "pending": false
+  },
+  {
+    "file": "./spec/properties/idempotency_property_spec.rb",
+    "name": "Invariante: idempotência número de :applied é igual ao número de eventos distintos que avançaram versão",
+    "pending": false
+  },
+  {
+    "file": "./spec/properties/idempotency_property_spec.rb",
+    "name": "Invariante: idempotência toda reentrega devolve :duplicate, nunca :applied",
+    "pending": false
+  },
+  {
+    "file": "./spec/properties/monotonicity_property_spec.rb",
+    "name": "Invariante: monotonicidade de versão a versão final é sempre a maior emitida para aquele entregador",
+    "pending": false
+  },
+  {
+    "file": "./spec/properties/monotonicity_property_spec.rb",
+    "name": "Invariante: monotonicidade de versão aplica no máximo um evento por (entregador, versão), mesmo se a fonte colidir",
+    "pending": false
+  },
+  {
+    "file": "./spec/properties/monotonicity_property_spec.rb",
+    "name": "Invariante: monotonicidade de versão source_version nunca decresce, em nenhum passo, para nenhum entregador",
+    "pending": false
+  },
+  {
+    "file": "./spec/reconciliation/checksum_spec.rb",
+    "name": "UltraSync::Reconciliation checksum muda quando qualquer versão muda",
+    "pending": false
+  },
+  {
+    "file": "./spec/reconciliation/checksum_spec.rb",
+    "name": "UltraSync::Reconciliation checksum é independente da ordem — é isso que dispensa ordenar os dois lados",
+    "pending": false
+  },
+  {
+    "file": "./spec/reconciliation/checksum_spec.rb",
+    "name": "UltraSync::Reconciliation detecção de divergência aponta exatamente a faixa divergente, e só ela",
+    "pending": false
+  },
+  {
+    "file": "./spec/reconciliation/checksum_spec.rb",
+    "name": "UltraSync::Reconciliation detecção de divergência não acusa divergência quando os dois lados estão em dia",
+    "pending": false
+  },
+  {
+    "file": "./spec/reconciliation/pg_parity_spec.rb",
+    "name": "Reconciliação: paridade entre Ruby e SQL a expressão SQL produz o mesmo checksum que o cálculo em Ruby",
+    "pending": false
+  },
+  {
+    "file": "./spec/reconciliation/pg_parity_spec.rb",
+    "name": "Reconciliação: paridade entre Ruby e SQL as faixas coincidem entregador a entregador",
+    "pending": false
+  },
+  {
+    "file": "./spec/reconciliation/pg_parity_spec.rb",
+    "name": "Reconciliação: paridade entre Ruby e SQL drift real aparece como divergência de faixa, e só nela",
+    "pending": false
+  },
+  {
+    "file": "./spec/reconciliation/pg_parity_spec.rb",
+    "name": "Reconciliação: paridade entre Ruby e SQL keyset pagination percorre a base inteira sem repetir nem pular registro",
+    "pending": false
+  },
+  {
+    "file": "./spec/reconciliation/pg_parity_spec.rb",
+    "name": "Reconciliação: paridade entre Ruby e SQL keyset pagination usa o índice em vez de varrer a tabela",
+    "pending": false
+  },
+  {
+    "file": "./spec/unit/batch_processor_spec.rb",
+    "name": "UltraSync::BatchProcessor#collapse a ordem canônica independe da ordem de chegada",
+    "pending": false
+  },
+  {
+    "file": "./spec/unit/batch_processor_spec.rb",
+    "name": "UltraSync::BatchProcessor#collapse devolve em ordem canônica de driver_id, para prevenir deadlock",
+    "pending": false
+  },
+  {
+    "file": "./spec/unit/batch_processor_spec.rb",
+    "name": "UltraSync::BatchProcessor#collapse mantém apenas o evento de maior sequence por entregador",
+    "pending": false
+  },
+  {
+    "file": "./spec/unit/circuit_breaker_spec.rb",
+    "name": "UltraSync::CircuitBreaker abertura abre exatamente ao atingir o limiar de falhas",
+    "pending": false
+  },
+  {
+    "file": "./spec/unit/circuit_breaker_spec.rb",
+    "name": "UltraSync::CircuitBreaker abertura sucesso zera a contagem antes do limiar",
+    "pending": false
+  },
+  {
+    "file": "./spec/unit/consumer_spec.rb",
+    "name": "UltraSync::Consumer sob indisponibilidade NÃO avança o offset de mensagem que será retentada",
+    "pending": false
+  },
+  {
+    "file": "./spec/unit/consumer_spec.rb",
+    "name": "UltraSync::Consumer sob indisponibilidade abre o breaker e pausa em vez de gerar dead letter",
+    "pending": false
+  },
+  {
+    "file": "./spec/unit/consumer_spec.rb",
+    "name": "UltraSync::Consumer sob indisponibilidade interrompe o lote na primeira falha, para não entregar fora de ordem",
+    "pending": false
+  },
+  {
+    "file": "./spec/unit/consumer_spec.rb",
+    "name": "UltraSync::Consumer sob indisponibilidade retoma do mesmo offset quando a dependência volta",
+    "pending": false
+  },
+  {
+    "file": "./spec/unit/consumer_spec.rb",
+    "name": "UltraSync::Consumer — validação e elegibilidade reavaliação de elegibilidade NÃO emite decisão em duplicata nem em evento stale",
+    "pending": false
+  },
+  {
+    "file": "./spec/unit/consumer_spec.rb",
+    "name": "UltraSync::Consumer — validação e elegibilidade reavaliação de elegibilidade a decisão reflete a política da Ultra-rápida, não o status do Portal",
+    "pending": false
+  },
+  {
+    "file": "./spec/unit/consumer_spec.rb",
+    "name": "UltraSync::Consumer — validação e elegibilidade reavaliação de elegibilidade emite decisão quando a projeção avança",
+    "pending": false
+  },
+  {
+    "file": "./spec/unit/consumer_spec.rb",
+    "name": "UltraSync::Consumer — validação e elegibilidade validação contra o contrato aceita payload válido",
+    "pending": false
+  },
+  {
+    "file": "./spec/unit/consumer_spec.rb",
+    "name": "UltraSync::Consumer — validação e elegibilidade validação contra o contrato distingue tipo desconhecido de payload inválido",
+    "pending": false
+  },
+  {
+    "file": "./spec/unit/consumer_spec.rb",
+    "name": "UltraSync::Consumer — validação e elegibilidade validação contra o contrato rejeita payload que viola o schema, com o código correto",
+    "pending": false
+  },
+  {
+    "file": "./spec/unit/outbox_spec.rb",
+    "name": "UltraSync::Outbox atomicidade estado e evento nascem juntos",
+    "pending": false
+  },
+  {
+    "file": "./spec/unit/outbox_spec.rb",
+    "name": "UltraSync::Outbox atomicidade não existe estado sem evento correspondente",
+    "pending": false
+  },
+  {
+    "file": "./spec/unit/outbox_spec.rb",
+    "name": "UltraSync::Outbox atomicidade não existe evento sem estado correspondente",
+    "pending": false
+  },
+  {
+    "file": "./spec/unit/outbox_spec.rb",
+    "name": "UltraSync::Outbox classificação de canal (ADR-005) criação e alteração de perfil vão para a bulk-lane",
+    "pending": false
+  },
+  {
+    "file": "./spec/unit/outbox_spec.rb",
+    "name": "UltraSync::Outbox classificação de canal (ADR-005) todo tipo do ciclo de vida tem canal declarado",
+    "pending": false
+  },
+  {
+    "file": "./spec/unit/outbox_spec.rb",
+    "name": "UltraSync::Outbox classificação de canal (ADR-005) transição de status vai para o fast-lane",
+    "pending": false
+  },
+  {
+    "file": "./spec/unit/outbox_spec.rb",
+    "name": "UltraSync::Outbox geração de sequence escritores concorrentes no mesmo entregador recebem versões distintas",
+    "pending": false
+  },
+  {
+    "file": "./spec/unit/outbox_spec.rb",
+    "name": "UltraSync::Outbox geração de sequence incrementa monotonicamente por entregador",
+    "pending": false
+  },
+  {
+    "file": "./spec/unit/outbox_spec.rb",
+    "name": "UltraSync::Outbox geração de sequence é por entregador, não global — 300 mil entidades não contendem",
+    "pending": false
+  }
+]

@@ -38,6 +38,30 @@ RSpec.describe "Invariante: convergência entre consumidores", :invariant do
     end
   end
 
+  # A convergência de ESTADO não basta: o lote também precisa CLASSIFICAR os
+  # eventos como o caminho individual classificaria. A contagem de duplicatas
+  # alimenta métrica, e uma métrica que discorda do comportamento real é pior
+  # que métrica nenhuma.
+  #
+  # Esta propriedade foi acrescentada depois de um teste unitário revelar que
+  # duplicata DENTRO do mesmo lote não era contabilizada — nem o
+  # `ON CONFLICT DO NOTHING` do Postgres nem o adapter em memória distinguem
+  # repetição da mesma chave na mesma instrução.
+  it "o lote classifica duplicatas como o processamento individual classificaria" do
+    PropertyCheck.forall(iterations: 150) do |events|
+      rng       = Random.new(events.size)
+      with_dups = Generators.with_duplicates(events, rng: rng)
+
+      individual = UltraSync::EventApplier.new(store: UltraSync::Store::Memory.new)
+                                          .apply_all(with_dups).count(:duplicate)
+
+      result = UltraSync::BatchProcessor.new(store: UltraSync::Store::Memory.new)
+                                        .process(with_dups)
+
+      expect(result.duplicates.size).to eq(individual)
+    end
+  end
+
   # Recuperação: um consumidor que ficou fora e depois recebe TUDO de novo
   # (replay a partir do offset zero) precisa chegar ao mesmo estado de quem
   # nunca caiu. É a garantia que torna o plano de DR seguro.

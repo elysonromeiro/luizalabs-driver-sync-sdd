@@ -25,8 +25,8 @@ bundle exec rspec --tag pg
 
 | Modo | Exemplos | Tempo |
 |---|---|---|
-| Sem Docker | 63 | ~0,7 s |
-| Com Postgres | 77 | ~2,5 s |
+| Sem Docker | 138 | ~2 s |
+| Com Postgres e Kafka | 168 | ~14 s |
 
 ## O que cada camada prova
 
@@ -36,7 +36,9 @@ bundle exec rspec --tag pg
 | `spec/properties` | Invariantes universais, sobre qualquer sequência gerada |
 | `spec/concurrency` | Ausência de lost update, por enumeração e contra Postgres real |
 | `spec/golden` | Regressão caso a caso das regras de despacho |
+| `spec/messaging` | Backpressure e compaction contra Kafka real |
 | `spec/contracts` | Conformidade nas duas direções com os schemas |
+| `spec/reconciliation` | Checksum por faixa e paridade entre SQL e Ruby |
 
 ### Propriedades, não exemplos
 
@@ -76,6 +78,16 @@ lote de 500 → 4 queries
 
 A asserção é sobre contagem porque contagem é determinística e tempo é ruidoso. Uma refatoração que troque o upsert em lote por um laço não muda nenhum resultado — só o custo.
 
+### Mensageria: as duas teses contrariáveis
+
+`spec/messaging` executa contra Kafka real as duas afirmações do SDD que soam erradas para quem vem de arquitetura de requisição-resposta:
+
+**Backpressure vence fail-fast.** Dependência cai → breaker abre → consumidor pausa → **DLQ vazia**, offset congelado. Dependência volta → retoma do mesmo offset, backlog drena, nada perdido. O spec de veneno de payload é a contraparte: se tudo fosse pausa, uma mensagem defeituosa travaria o pipeline para sempre.
+
+**Compaction serve catch-up.** Um consumidor novo reconstrói a base **sem uma query ao Portal**. Medido neste broker: 100 mensagens sob uma chave compactam para **4 retidas**, 96% de redução.
+
+Nenhuma asserção depende de tempo decorrido — todas são sobre estado observável (breaker aberto, offset congelado, profundidade da DLQ, lag pelas marcas d'água do broker).
+
 ## Spec-driven na prática
 
 `bin/generate` deriva os enums e limites do domínio de `contracts/schemas/driver-state.schema.json`. Nada em Ruby redigita a lista de status ou de tipos de veículo.
@@ -86,6 +98,30 @@ bin/generate --check   # falha se o arquivo em disco divergir do contrato
 ```
 
 Editar o arquivo gerado à mão faz o CI falhar apontando a linha divergente. É o que transforma "a spec é a fonte da verdade" em portão de build.
+
+### Guardrails
+
+```bash
+bin/generate --check    # código gerado em dia com o contrato
+bin/schema_compat       # compatibilidade BACKWARD
+bin/test_inventory --check  # nenhuma invariante removida ou desabilitada
+bin/coupled_change      # mudança crítica exige mudança em spec/
+bin/mutate              # 12 mutações, todas precisam morrer
+bin/sabotage            # 6 violações deliberadas, todas barradas
+bin/check_docs          # links da documentação
+```
+
+`bin/sabotage` é o mais direto de conferir: executa seis violações reais, mostra a saída de cada barreira e reverte tudo ao fim, inclusive sob Ctrl-C.
+
+## Duas divergências do enunciado, declaradas
+
+O enunciado cita **RSpec/FactoryBot** e diz que o core é **Ruby on Rails**. Este harness usa RSpec, mas não FactoryBot nem ActiveRecord. As duas escolhas são deliberadas e vale dizer por quê, em vez de esperar que passem despercebidas.
+
+**Fábricas próprias em vez de FactoryBot.** Os testes de propriedade precisam ser **reprodutíveis a partir de uma seed** — sem isso, uma falha não é diagnosticável. Toda geração aqui passa por um `Random` explícito, e a seed é reportada no contraexemplo. FactoryBot gera valores por sequência global e `Faker`, que não se reproduz a partir de seed. Trocar o determinismo pela conveniência do DSL seria caro no lugar errado.
+
+**Ruby puro em vez de ActiveRecord.** O harness existe para tornar as invariantes executáveis, e nenhuma delas é sobre o ORM. Usar ActiveRecord acrescentaria migrations, um `Rails.application` e tempo de boot ao que hoje roda em dois segundos sem dependência nenhuma — e quem avalia precisa conseguir clonar e rodar.
+
+O que é específico do Rails aparece onde deve: `docs/02-concorrencia.md` mostra o `upsert_all`, o `insert_all` e o `includes` reais, com o antes e o depois de N+1. O `Store::Postgres` usa a gem `pg` direto, então o SQL que o documento defende é o SQL que a suíte executa — sem a camada do ORM no meio, que aliás é o que permite o `ON CONFLICT ... WHERE` que o `upsert_all` não expõe.
 
 ## Paths protegidos
 

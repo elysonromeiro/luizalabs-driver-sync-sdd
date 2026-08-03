@@ -1,0 +1,174 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Executa sabotagens deliberadas e mostra qual guardrail barra cada uma.
+#
+# POR QUE ISTO EXISTE
+#
+# Um SDD pode afirmar que tem proteções. Este script permite a quem avalia
+# CONFERIR — clonar o repositório, rodar um comando e ver cada barreira agindo
+# com a saída real. A diferença entre alegação e demonstração.
+#
+# Ele também serve de teste de regressão dos próprios guardrails: se alguém
+# enfraquecer uma proteção, a sabotagem correspondente para de ser barrada e
+# o script falha.
+#
+# Toda alteração é revertida ao fim, inclusive sob Ctrl-C.
+#
+#   bin/sabotage            roda todas
+#   bin/sabotage --only N   roda apenas a de número N
+
+require "open3"
+require "json"
+
+HARNESS = File.expand_path("..", __dir__)
+ROOT    = File.expand_path("..", HARNESS)
+
+def run(command, chdir: HARNESS)
+  stdout, stderr, status = Open3.capture3(*command, chdir: chdir)
+  ["#{stdout}#{stderr}", status.exitstatus]
+end
+
+# Cada sabotagem: o que quebra, qual guardrail deveria barrar, e como fazer.
+SABOTAGES = [
+  {
+    title:  "Editar um arquivo de invariante",
+    layer:  "PREVENTIVA",
+    guard:  "hook PreToolUse",
+    detail: "O agente tenta modificar spec/properties/ diretamente.",
+    perform: lambda do
+      payload = JSON.generate(
+        "tool_name"  => "Edit",
+        "tool_input" => { "file_path" => "#{HARNESS}/spec/properties/idempotency_property_spec.rb" }
+      )
+      out, code = Open3.capture3("#{ROOT}/.claude/hooks/protect_paths.rb", stdin_data: payload)
+                       .then { |o, e, s| ["#{o}#{e}", s.exitstatus] }
+      [out, code]
+    end
+  },
+  {
+    title:  "Trocar `<` por `<=` na escrita condicional",
+    layer:  "DETECTIVA",
+    guard:  "propriedade de monotonicidade",
+    detail: "Mudança invisível no estado final; só o desfecho a distingue.",
+    file:   "lib/ultra_sync/store/memory.rb",
+    mutate: ["current.source_version >= source_version", "current.source_version > source_version"],
+    verify: %w[bundle exec rspec --tag invariant --tag ~pg --tag ~kafka --format progress --no-color]
+  },
+  {
+    title:  "Marcar uma invariante como `xit`",
+    layer:  "DETECTIVA",
+    guard:  "bin/test_inventory --check",
+    detail: "O vetor mais simples: desabilitar o teste que incomoda.",
+    file:   "spec/properties/monotonicity_property_spec.rb",
+    mutate: ['it "source_version nunca decresce', 'xit "source_version nunca decresce'],
+    verify: %w[bin/test_inventory --check]
+  },
+  {
+    title:  "Editar o código gerado em vez do contrato",
+    layer:  "DETECTIVA",
+    guard:  "bin/generate --check",
+    detail: "Viola a regra fundamental: a spec é a fonte da verdade.",
+    file:   "lib/ultra_sync/generated/driver_state.rb",
+    mutate: ["MAX_CARGO_CAPACITY_KG  = 3500", "MAX_CARGO_CAPACITY_KG  = 9999"],
+    verify: %w[bin/generate --check]
+  },
+  {
+    title:  "Adicionar campo obrigatório ao contrato",
+    layer:  "DETECTIVA",
+    guard:  "bin/schema_compat",
+    detail: "Não quebra o produtor; quebra todo consumidor existente.",
+    file:   "../contracts/schemas/driver-state.schema.json",
+    mutate: ['"required": [', '"required": [
+    "nickname",'],
+    verify: %w[bin/schema_compat --base origin/main]
+  },
+  {
+    title:  "Enfraquecer os casos golden de fronteira",
+    layer:  "DETECTIVA",
+    guard:  "bin/mutate",
+    detail: "A suíte continua verde; só a mutação percebe que a fronteira ficou desprotegida.",
+    file:   "spec/golden/dispatch_cases.json",
+    # Não remove o caso — apenas tira a FRONTEIRA dele. O golden continua
+    # passando e continua parecendo cobrir despacho por peso; só deixa de
+    # fixar o limite exato, que é justamente o que o operador <= decide.
+    mutate: ['"offer": { "segment": "goods", "weight_kg": 30, "distance_km": 5 }',
+             '"offer": { "segment": "goods", "weight_kg": 20, "distance_km": 5 }'],
+    verify: %w[bin/mutate --file dispatch_rules]
+  }
+].freeze
+
+only = (ARGV.index("--only") && ARGV[ARGV.index("--only") + 1].to_i)
+targets = only ? [SABOTAGES[only - 1]].compact : SABOTAGES
+
+puts "=" * 78
+puts "ROTEIRO DE SABOTAGEM — #{targets.size} violação(ões) deliberada(s)"
+puts "=" * 78
+
+undetected = []
+backups = {}
+
+restore = lambda do
+  backups.each { |path, content| File.write(path, content) }
+  backups.clear
+end
+
+at_exit { restore.call }
+trap("INT") { restore.call; exit 130 }
+
+targets.each_with_index do |sabotage, index|
+  number = only || index + 1
+  puts
+  puts "-" * 78
+  puts "#{number}. #{sabotage[:title]}"
+  puts "   camada: #{sabotage[:layer]}   barreira esperada: #{sabotage[:guard]}"
+  puts "   #{sabotage[:detail]}"
+  puts "-" * 78
+
+  output, code =
+    if sabotage[:perform]
+      sabotage[:perform].call
+    else
+      path = File.expand_path(sabotage[:file], HARNESS)
+      original = File.read(path)
+      backups[path] = original
+
+      from, to = sabotage[:mutate]
+      unless original.include?(from)
+        puts "   ERRO: trecho não encontrado — a sabotagem precisa ser atualizada"
+        undetected << sabotage[:title]
+        next
+      end
+
+      File.write(path, original.sub(from, to))
+      result = run(sabotage[:verify])
+      File.write(path, original)
+      backups.delete(path)
+      result
+    end
+
+  puts output.lines.reject { |l| l.strip.empty? }.first(12).map { "   #{_1}" }.join
+  puts "   → exit #{code}"
+
+  if code.zero?
+    puts "   NÃO DETECTADA — o guardrail deixou passar"
+    undetected << sabotage[:title]
+  else
+    puts "   BARRADA"
+  end
+end
+
+restore.call
+
+puts
+puts "=" * 78
+if undetected.empty?
+  puts "Todas as #{targets.size} sabotagens foram barradas."
+  puts "=" * 78
+  exit 0
+end
+
+puts "#{undetected.size} sabotagem(ns) NÃO detectada(s):"
+undetected.each { puts "  - #{_1}" }
+puts "=" * 78
+exit 1

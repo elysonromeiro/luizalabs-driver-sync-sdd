@@ -1,0 +1,42 @@
+# Revisão humana obrigatória nos caminhos que concentram corretude.
+#
+# Este arquivo é a camada CORRETIVA dos guardrails (docs/05-ai-harness.md).
+# As camadas preventiva e detectiva agem sozinhas; esta exige que uma pessoa
+# olhe.
+#
+# A lista é curta de propósito. Exigir revisão em tudo transforma a aprovação
+# num carimbo, e um carimbo protege menos que nenhuma regra — porque cria a
+# impressão de que alguém olhou.
+
+# Padrão: sem dono obrigatório.
+*
+
+# --- Contratos -------------------------------------------------------------
+# São a fonte da verdade. O código é derivado deles, e uma mudança
+# incompatível quebra consumidores que este repositório nem conhece.
+/contracts/                         @elysonromeiro
+
+# --- Invariantes -----------------------------------------------------------
+# As propriedades que definem corretude. Um agente que "conserte" um teste
+# vermelho relaxando a asserção passa por aqui.
+/harness/spec/properties/           @elysonromeiro
+/harness/spec/concurrency/          @elysonromeiro
+
+# --- Casos golden ----------------------------------------------------------
+# Congelam as regras de despacho caso a caso. O buraco conhecido da técnica é
+# o agente regenerar os esperados para casar com o comportamento novo; esta
+# linha é o que fecha essa saída.
+/harness/spec/golden/               @elysonromeiro
+
+# --- Os próprios guardrails ------------------------------------------------
+# Quem pode desativar a proteção sem revisão não está protegido por ela.
+/harness/spec/guardrails/           @elysonromeiro
+/harness/bin/                       @elysonromeiro
+/.github/workflows/                 @elysonromeiro
+/.github/CODEOWNERS                 @elysonromeiro
+
+# --- Instruções aos agentes ------------------------------------------------
+# CLAUDE.md e a configuração de subagents são a camada preventiva. Editá-las é
+# editar as regras do jogo.
+/CLAUDE.md                          @elysonromeiro
+/.claude/                           @elysonromeiro
