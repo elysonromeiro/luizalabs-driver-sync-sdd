@@ -29,15 +29,37 @@ require_relative "ultra_sync/reconciliation"
 module UltraSync
   VERSION = "1.0.0"
 
+  # Sonda de disponibilidade do broker.
+  #
+  # Silenciada de propósito. Quando o Kafka não está no ar — o caso normal no
+  # job rápido do CI — a librdkafka despeja "Connection refused" no stderr e o
+  # finalizador do cliente levanta ThreadError em trap context. Nada disso é
+  # falha: é a sonda funcionando. Ruído numa saída de CI faz gente parar de ler
+  # a saída, que é o custo real.
   def self.kafka_available?(brokers: ENV.fetch("KAFKA_BROKERS", "127.0.0.1:59092"))
     require "rdkafka"
-    config = Rdkafka::Config.new("bootstrap.servers" => brokers, "socket.timeout.ms" => 2000)
-    admin = config.admin
-    admin.metadata(nil, 3000)
-    admin.close
-    true
+    require "logger"
+
+    previous_logger = Rdkafka::Config.logger
+    Rdkafka::Config.logger = Logger.new(File::NULL)
+
+    admin = Rdkafka::Config.new(
+      "bootstrap.servers" => brokers,
+      "socket.timeout.ms" => 2000,
+      "log_level"         => 0
+    ).admin
+
+    begin
+      admin.metadata(nil, 3000)
+      true
+    ensure
+      # Fechar explicitamente evita que o finalizador rode em trap context.
+      admin.close
+    end
   rescue LoadError, StandardError
     false
+  ensure
+    Rdkafka::Config.logger = previous_logger if defined?(Rdkafka)
   end
 
   def self.postgres_store!(**opts)

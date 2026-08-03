@@ -75,10 +75,11 @@ RSpec.describe "Guardrails: números citados na documentação" do
   # citado do documento é exatamente o tipo de cobertura assimétrica que este
   # repositório argumenta contra.
   it "os documentos citam o número real de exemplos da suíte" do
-    report = JSON.parse(
-      `cd #{REPO}/harness && bundle exec rspec --dry-run --format json 2>/dev/null`[/\{.*\}/m].to_s
-    )
-    total = report.fetch("examples").size
+    # ULTRASYNC_ENUMERATE_ALL: sem ele, a contagem depende de quais serviços
+    # estão no ar, e o número documentado da suíte completa parece
+    # superestimado sempre que se roda sem Docker.
+    json = `cd #{REPO}/harness && ULTRASYNC_ENUMERATE_ALL=1 bundle exec rspec --dry-run --format json 2>/dev/null`
+    total = JSON.parse(json[/\{.*\}/m].to_s).fetch("examples").size
 
     %w[README.md CLAUDE.md].each do |file|
       cited = read(file).scan(/(\d+) exemplos/).flatten.map(&:to_i)

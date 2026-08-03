@@ -33,7 +33,14 @@ CHECK = ARGV.include?("--check")
 # --dry-run não executa nada: só carrega os arquivos e enumera os exemplos.
 # Barato o bastante para rodar em todo commit.
 cmd = %w[bundle exec rspec --tag invariant --dry-run --format json]
-stdout, stderr, status = Open3.capture3(*cmd, chdir: ROOT)
+
+# ENUMERATE_ALL: o inventário precisa listar TODAS as invariantes,
+# independentemente de Postgres ou Kafka estarem no ar. Sem isso, rodar sem
+# Docker faria as invariantes :pg e :kafka parecerem removidas — o guardrail
+# reportaria o ambiente como se fosse sabotagem.
+stdout, stderr, status = Open3.capture3(
+  { "ULTRASYNC_ENUMERATE_ALL" => "1" }, *cmd, chdir: ROOT
+)
 
 unless status.success?
   warn "test_inventory: rspec falhou ao enumerar os exemplos"

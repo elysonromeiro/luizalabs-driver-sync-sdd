@@ -14,10 +14,22 @@ REPO_ROOT = File.expand_path("../..", __dir__)
 #
 # Quem clona o repositório roda a suíte inteira sem Docker e vê o que sobra,
 # com uma mensagem dizendo o que está faltando e como obter.
-PG_AVAILABLE    = UltraSync.postgres_available?
-KAFKA_AVAILABLE = UltraSync.kafka_available?
+# ULTRASYNC_ENUMERATE_ALL faz o carregamento ignorar a disponibilidade das
+# dependências e registrar TODOS os exemplos.
+#
+# Existe para os guardrails que contam exemplos (`bin/test_inventory`,
+# documented_numbers_spec). Sem isso, a contagem depende de quais serviços
+# estão no ar: no job `fast` do CI, sem Docker, os exemplos :pg e :kafka são
+# filtrados e o inventário conclui que invariantes foram REMOVIDAS. O
+# guardrail acusava o ambiente em vez do código.
+#
+# Seguro porque quem usa esta variável roda com --dry-run: os exemplos são
+# enumerados, nunca executados, então nenhuma conexão é aberta.
+ENUMERATE_ALL   = ENV["ULTRASYNC_ENUMERATE_ALL"] == "1"
+PG_AVAILABLE    = ENUMERATE_ALL || UltraSync.postgres_available?
+KAFKA_AVAILABLE = ENUMERATE_ALL || UltraSync.kafka_available?
 
-unless PG_AVAILABLE
+if !PG_AVAILABLE && !ENUMERATE_ALL
   params = UltraSync::Store::Postgres.connection_params
   warn ""
   warn "  [pg] Postgres indisponível em #{params[:host]}:#{params[:port]} — specs :pg serão pulados."
@@ -25,7 +37,7 @@ unless PG_AVAILABLE
   warn ""
 end
 
-unless KAFKA_AVAILABLE
+if !KAFKA_AVAILABLE && !ENUMERATE_ALL
   warn ""
   warn "  [kafka] Broker indisponível em #{ENV.fetch('KAFKA_BROKERS', '127.0.0.1:59092')} — specs :kafka serão pulados."
   warn "          Para rodá-los:  docker compose up -d"
