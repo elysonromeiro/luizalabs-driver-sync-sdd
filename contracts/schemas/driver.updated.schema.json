@@ -4,7 +4,7 @@
   "title": "driver.updated",
   "description": "Alteração de perfil do entregador — troca de veículo, mudança de raio de entrega, atualização documental. Trafega pela bulk-lane (`drivers.profile.v1`): é o evento de maior volume e o de menor criticidade temporal. Nunca representa mudança de status; para isso existe driver.status_changed.",
   "allOf": [
-    { "$ref": "https://schemas.magalu.com.br/logistica/driver-sync/v1/envelope.schema.json" },
+    { "$ref": "envelope.schema.json" },
     {
       "type": "object",
       "properties": {
@@ -21,7 +21,7 @@
       "properties": {
         "driver": {
           "description": "Estado COMPLETO após a alteração. É ele que o consumidor projeta.",
-          "$ref": "https://schemas.magalu.com.br/logistica/driver-sync/v1/driver-state.schema.json"
+          "$ref": "driver-state.schema.json"
         },
         "changed_fields": {
           "description": "Caminhos JSON Pointer dos campos que mudaram neste fato. É metadado de observabilidade e roteamento — permite ao consumidor decidir se a mudança é relevante para ele antes de reavaliar elegibilidade, e alimenta auditoria. NÃO é o insumo da projeção: o consumidor sempre aplica `driver` por inteiro, de modo que perder ou ignorar este campo não produz estado incorreto.",

@@ -4,7 +4,7 @@
   "title": "driver.status_changed",
   "description": "Transição de estado no ciclo de vida do entregador: ativação, inativação, bloqueio de segurança, desligamento. Trafega pelo fast-lane (`drivers.status.v1`), em canal separado do tráfego de perfil. O motivo é operacional, não estético: depois de uma indisponibilidade, a ativação de um entregador não pode ficar atrás de horas de backlog de atualização de perfil. Ver ADR-005.",
   "allOf": [
-    { "$ref": "https://schemas.magalu.com.br/logistica/driver-sync/v1/envelope.schema.json" },
+    { "$ref": "envelope.schema.json" },
     {
       "type": "object",
       "properties": {
@@ -21,11 +21,11 @@
       "properties": {
         "driver": {
           "description": "Estado COMPLETO após a transição. `driver.status` é o novo status.",
-          "$ref": "https://schemas.magalu.com.br/logistica/driver-sync/v1/driver-state.schema.json"
+          "$ref": "driver-state.schema.json"
         },
         "previous_status": {
           "description": "Status imediatamente anterior no Portal. Metadado de auditoria: o consumidor NÃO deve condicionar a aplicação a ele, porque um evento pode chegar depois de outro já ter avançado o estado. A decisão de aplicar ou descartar é sempre por `sequence`.",
-          "$ref": "https://schemas.magalu.com.br/logistica/driver-sync/v1/driver-state.schema.json#/$defs/DriverStatus"
+          "$ref": "driver-state.schema.json#/$defs/DriverStatus"
         },
         "reason": {
           "$ref": "#/$defs/Reason"

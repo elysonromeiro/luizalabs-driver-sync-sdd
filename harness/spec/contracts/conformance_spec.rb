@@ -6,6 +6,21 @@ require "json_schemer"
 # Fecha o laço do spec-driven development: os exemplos do contrato são
 # validados contra os schemas, e os eventos que o harness produz também.
 #
+# ESCOPO: este arquivo valida PAYLOADS contra JSON Schema. Ele NÃO valida que
+# `asyncapi.yaml` e `openapi.yaml` são documentos válidos segundo suas
+# especificações — isso é `npm --prefix contracts run validate`, com os
+# parsers oficiais.
+#
+# A separação foi aprendida da forma difícil. Uma versão anterior deste
+# comentário justificava não usar as ferramentas oficiais "porque exigem Node
+# e não estariam cobertas pelo mesmo pipeline". A justificativa estava errada:
+# a AsyncAPI era INVÁLIDA para o parser oficial — `$ref` absolutos para um
+# domínio inexistente faziam o dereferenciador tentar a rede — e a verificação
+# caseira não via, porque só checava se o YAML parseava.
+#
+# "O arquivo parseia" e "a ferramenta padrão aceita" são afirmações
+# diferentes, e o enunciado pede a segunda.
+#
 # A verificação corre nas DUAS direções. Só validar o que deve passar deixa
 # escapar um schema permissivo demais — que aceitaria qualquer coisa e passaria
 # no teste positivo sem proteger nada.

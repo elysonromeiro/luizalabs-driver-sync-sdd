@@ -278,3 +278,45 @@ RSpec.describe "Guardrails: cobertura acompanha o código" do
     expect(stale).to be_empty, "isenção para arquivo inexistente: #{stale.join(', ')}"
   end
 end
+
+# Achado do primeiro ciclo de revisão independente.
+#
+# O enunciado pede contratos "em formato padrão AsyncAPI ou OpenAPI 3.0" e
+# "exemplos funcionais". A verificação que existia checava apenas que o YAML
+# parseava e que os `$ref` apontavam para arquivos existentes.
+#
+# Não é a mesma coisa. O `asyncapi.yaml` estava **inválido** para o parser
+# oficial durante todo o desenvolvimento: os `$ref` entre schemas eram URIs
+# absolutas para um domínio que não resolve, e o dereferenciador tentava
+# buscar pela rede. Quem abrisse no AsyncAPI Studio veria erro.
+RSpec.describe "Guardrails: contratos" do
+  CONTRACTS_DIR = File.expand_path("../../../contracts", __dir__)
+
+  it "nenhum $ref entre schemas usa URI absoluta" do
+    offenders = Dir[File.join(CONTRACTS_DIR, "schemas/*.json")].flat_map do |path|
+      File.read(path).scan(/"\$ref":\s*"(https?:[^"]+)"/).flatten
+          .map { "#{File.basename(path)} → #{_1}" }
+    end
+
+    expect(offenders).to be_empty,
+                         "$ref absoluto faz o parser oficial tentar a rede e falhar:\n  " +
+                         offenders.join("\n  ")
+  end
+
+  it "existe validação com os parsers oficiais, e o CI a executa" do
+    expect(File.exist?(File.join(CONTRACTS_DIR, "validate.mjs"))).to be(true),
+                                                                    "contracts/validate.mjs sumiu"
+
+    ci = File.read(File.expand_path("../../../.github/workflows/ci.yml", __dir__))
+    expect(ci).to include("contracts run validate"),
+                  "o CI não valida os contratos contra as especificações oficiais"
+  end
+
+  it "todo schema referenciado pelo AsyncAPI existe em disco" do
+    asyncapi = File.read(File.join(CONTRACTS_DIR, "asyncapi.yaml"))
+    missing = asyncapi.scan(%r{\$ref:\s*'(\./[^']+)'}).flatten.uniq
+                      .reject { File.exist?(File.join(CONTRACTS_DIR, _1)) }
+
+    expect(missing).to be_empty, "referências quebradas: #{missing.join(', ')}"
+  end
+end

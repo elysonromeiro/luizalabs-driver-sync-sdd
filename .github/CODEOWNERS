@@ -7,6 +7,14 @@
 # A lista é curta de propósito. Exigir revisão em tudo transforma a aprovação
 # num carimbo, e um carimbo protege menos que nenhuma regra — porque cria a
 # impressão de que alguém olhou.
+#
+# ATENÇÃO: este arquivo é ADVISÓRIO por si só. Ele sugere revisores; não os
+# exige. A exigência depende de uma regra de proteção da branch com
+# "Require review from Code Owners" habilitado.
+#
+# Sem essa regra, a camada corretiva dos guardrails não está ativa — e o modo
+# de falha é silencioso, porque tudo parece configurado. Ver
+# docs/05-ai-harness.md.
 
 # Padrão: sem dono obrigatório.
 *

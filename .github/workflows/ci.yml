@@ -67,6 +67,18 @@ jobs:
           ruby-version: "3.2"
           bundler-cache: true
           working-directory: harness
+      # Valida com os PARSERS OFICIAIS, não só com uma checagem caseira de
+      # YAML. Uma verificação anterior confirmava apenas que o arquivo
+      # parseava e que os $ref apontavam para arquivos existentes — e o
+      # asyncapi.yaml estava INVÁLIDO para o parser oficial durante todo esse
+      # tempo, porque os $ref eram URIs absolutas para um domínio inexistente.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Contratos válidos segundo AsyncAPI e OpenAPI
+        run: |
+          npm --prefix contracts ci --no-audit --no-fund || npm --prefix contracts install --no-audit --no-fund
+          npm --prefix contracts run validate
       - name: Código gerado em dia com o contrato
         working-directory: harness
         run: bin/generate --check
