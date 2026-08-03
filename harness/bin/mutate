@@ -1,0 +1,199 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Mutation testing caseiro para os módulos críticos.
+#
+# POR QUE ISTO EXISTE
+#
+# Cobertura mede quais linhas foram executadas, não se alguém olhou o
+# resultado. Um agente de IA que gere `expect(true).to be true` atinge 100% de
+# cobertura e protege zero. Mutação inverte a pergunta: estraga o código de
+# propósito e exige que a suíte perceba. Uma mutação que sobrevive é a prova de
+# que aquele trecho não está sendo verificado por ninguém.
+#
+# Este harness já pagou o próprio custo uma vez. Ao rodá-lo pela primeira vez
+# na Fase 3, a troca de `<` por `<=` na escrita condicional sobreviveu a todas
+# as quatro propriedades — o gerador emitia versões estritamente crescentes por
+# entregador, então dois eventos nunca colidiam de versão e os operadores eram
+# indistinguíveis. A propriedade que falta foi escrita por causa disso.
+#
+# POR QUE À MÃO EM VEZ DA GEM `mutant`
+#
+# Escopo. `mutant` gera centenas de mutações por arquivo e exige integração
+# própria; aqui interessam poucas mutações muito bem escolhidas nos arquivos
+# que concentram a corretude. Oitenta linhas legíveis valem mais como
+# demonstração de entendimento do que uma dependência configurada.
+#
+#   bin/mutate            roda todas as mutações
+#   bin/mutate --list     apenas lista o que seria mutado
+#   bin/mutate --file X   restringe a um arquivo
+
+require "open3"
+
+ROOT = File.expand_path("..", __dir__)
+
+# Cada mutação é uma troca cirúrgica num arquivo que concentra corretude.
+# `label` explica QUAL invariante deveria morrer com ela — se a suíte não
+# matar, a mensagem já diz o que ficou desprotegido.
+MUTATIONS = [
+  {
+    file:  "lib/ultra_sync/store/memory.rb",
+    from:  "current.source_version >= source_version",
+    to:    "current.source_version > source_version",
+    label: "escrita condicional aceita versão IGUAL (equivale a trocar < por <=)"
+  },
+  {
+    file:  "lib/ultra_sync/store/memory.rb",
+    from:  "return 0 if current && current.source_version >= source_version",
+    to:    "return 0 if current && current.source_version > source_version + 1_000_000",
+    label: "escrita condicional nunca descarta evento stale"
+  },
+  {
+    file:  "lib/ultra_sync/event_applier.rb",
+    from:  "next :duplicate unless store.claim(event.source, event.id)",
+    to:    "store.claim(event.source, event.id)",
+    label: "deduplicação removida — reentrega passa a reaplicar"
+  },
+  {
+    file:  "lib/ultra_sync/event_applier.rb",
+    from:  "rows.zero? ? :stale : :applied",
+    to:    ":applied",
+    label: "applier reporta :applied mesmo quando nada foi escrito"
+  },
+  {
+    file:  "lib/ultra_sync/eligibility_policy.rb",
+    from:  'reasons << :individual_not_allowed unless state["document_type"] == "cnpj"',
+    to:    'reasons << :individual_not_allowed if false',
+    label: "pessoa física deixa de ser rejeitada — o critério que o enunciado cita"
+  },
+  {
+    file:  "lib/ultra_sync/eligibility_policy.rb",
+    from:  'reasons << :not_active unless state["status"] == "active"',
+    to:    'reasons << :not_active unless state["status"] != "active"',
+    label: "elegibilidade invertida no status — bloqueado passa a operar"
+  },
+  {
+    file:  "lib/ultra_sync/dispatch_rules.rb",
+    from:  "offer.weight_kg <= capacity",
+    to:    "offer.weight_kg < capacity",
+    label: "peso exatamente igual à capacidade passa a ser recusado"
+  },
+  {
+    file:  "lib/ultra_sync/dispatch_rules.rb",
+    from:  "offer.distance_km <= radius",
+    to:    "offer.distance_km < radius",
+    label: "distância exatamente igual ao raio passa a ser recusada"
+  },
+  {
+    file:  "lib/ultra_sync/batch_processor.rb",
+    from:  "group.max_by(&:sequence)",
+    to:    "group.min_by(&:sequence)",
+    label: "lote colapsa para a MENOR versão em vez da maior"
+  },
+  {
+    file:  "lib/ultra_sync/batch_processor.rb",
+    from:  ".sort_by(&:driver_id)",
+    to:    "",
+    label: "ordem canônica removida — volta o risco de deadlock"
+  },
+  {
+    file:  "lib/ultra_sync/consumer.rb",
+    from:  "COMMITTABLE = %i[processed dead_lettered].freeze",
+    to:    "COMMITTABLE = %i[processed dead_lettered paused].freeze",
+    label: "offset avança mesmo com o consumo pausado — mensagens somem na retomada"
+  },
+  {
+    file:  "lib/ultra_sync/circuit_breaker.rb",
+    from:  "@failure_count >= @threshold",
+    to:    "@failure_count >= @threshold + 100",
+    label: "breaker nunca abre — consumo martela dependência caída"
+  }
+].freeze
+
+# A suíte rodada por mutação. Só o que não depende de Docker: precisa ser
+# rápida o bastante para rodar uma vez por mutação sem que ninguém desista.
+SUITE = %w[bundle exec rspec --tag ~pg --tag ~kafka --format progress --no-color].freeze
+
+def run_suite
+  _out, _err, status = Open3.capture3(*SUITE, chdir: ROOT)
+  status.success?
+end
+
+def apply(mutation)
+  path     = File.join(ROOT, mutation[:file])
+  original = File.read(path)
+
+  unless original.include?(mutation[:from])
+    return [:not_found, original]
+  end
+
+  File.write(path, original.sub(mutation[:from], mutation[:to]))
+  [:applied, original]
+end
+
+targets = MUTATIONS
+if (index = ARGV.index("--file"))
+  targets = MUTATIONS.select { _1[:file].include?(ARGV[index + 1].to_s) }
+end
+
+if ARGV.include?("--list")
+  targets.each { |m| puts "#{m[:file].ljust(42)} #{m[:label]}" }
+  exit 0
+end
+
+puts "Verificando a suíte antes de mutar..."
+unless run_suite
+  warn "A suíte já falha sem mutação. Corrija antes de rodar bin/mutate."
+  exit 2
+end
+puts "Suíte verde. Aplicando #{targets.size} mutações.\n\n"
+
+survivors = []
+missing   = []
+
+targets.each_with_index do |mutation, i|
+  print format("[%2d/%2d] %-38s ", i + 1, targets.size, File.basename(mutation[:file]))
+  state, original = apply(mutation)
+  path = File.join(ROOT, mutation[:file])
+
+  begin
+    if state == :not_found
+      missing << mutation
+      puts "TRECHO NÃO ENCONTRADO"
+      next
+    end
+
+    if run_suite
+      survivors << mutation
+      puts "SOBREVIVEU"
+    else
+      puts "morta"
+    end
+  ensure
+    # ensure garante que o arquivo volta ao original mesmo sob Ctrl-C ou
+    # exceção. Um mutante esquecido em disco seria muito pior que a falha.
+    File.write(path, original)
+  end
+end
+
+puts
+if missing.any?
+  warn "#{missing.size} mutação(ões) com trecho não encontrado — o código mudou e"
+  warn "a mutação precisa ser atualizada:"
+  missing.each { |m| warn "  #{m[:file]}: #{m[:from].inspect}" }
+  warn ""
+end
+
+if survivors.empty? && missing.empty?
+  puts "Todas as #{targets.size} mutações foram mortas pela suíte."
+  exit 0
+end
+
+survivors.each do |mutation|
+  warn "SOBREVIVEU  #{mutation[:file]}"
+  warn "            #{mutation[:label]}"
+  warn "            A suíte passou com o código quebrado — falta teste que observe isso."
+  warn ""
+end
+
+exit 1
