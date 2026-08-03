@@ -1,0 +1,392 @@
+openapi: 3.0.3
+
+info:
+  title: Portal dos Entregadores — API de suporte à sincronização
+  version: 1.0.0
+  description: |
+    API síncrona do Portal, complementar ao fluxo de eventos. Ela existe para três
+    coisas que um log de eventos não resolve bem, e **não** para substituí-lo:
+
+    1. **Resolver PII sob demanda.** Os eventos carregam tokens opacos no lugar de
+       CPF, CNPJ e placa. Quem legitimamente precisa do valor real chama aqui, com
+       autorização própria e trilha de auditoria por chamada.
+    2. **Detectar divergência.** Um checksum agregado por faixa de `driver_id`
+       permite comparar Portal e consumidor sem transferir 300 mil registros.
+    3. **Reconciliar o que divergiu.** Um feed paginado por keyset, servido de
+       réplica de leitura, para o consumidor recuperar apenas as faixas divergentes.
+
+    ## Ordem de custo
+
+    Reconciliar é sempre a última opção. A escada, do mais barato ao mais caro:
+
+    | Nível | Mecanismo | Custo para o Portal |
+    |---|---|---|
+    | 1 | Replay do consumer group a partir do offset | zero |
+    | 2 | Bootstrap pelo tópico compactado `drivers.snapshot.v1` | zero |
+    | 3 | `GET /v1/drivers/checksums` para achar as faixas divergentes | leve, agregado |
+    | 4 | `GET /v1/drivers` nas faixas divergentes | moderado, em réplica |
+
+    Nunca varra a base inteira. Ver `docs/06-especialista.md`.
+
+  contact:
+    name: Time de Logística Ultra Rápida
+    url: https://github.com/elysonromeiro/luizalabs-driver-sync-sdd
+  license:
+    name: MIT
+
+servers:
+  - url: https://portal-entregadores.logistica.magalu.internal
+    description: Produção — rede interna, exposta apenas a serviços do ecossistema
+
+security:
+  - oauth2: [drivers.read]
+
+tags:
+  - name: Reconciliação
+    description: Detecção de divergência e recuperação de estado.
+  - name: Dados sensíveis
+    description: Resolução de PII sob autorização e auditoria.
+  - name: Operação
+    description: Reparo pontual.
+
+paths:
+  /v1/drivers/checksums:
+    get:
+      tags: [Reconciliação]
+      operationId: getDriverChecksums
+      summary: Checksum agregado por faixa de entregadores
+      description: |
+        Divide a base em `buckets` faixas por `hash(driver_id) % buckets` e devolve,
+        para cada faixa, a contagem e um checksum agregado sobre os pares
+        `(driver_id, sequence)`.
+
+        O checksum é **independente de ordem** — implementado como `bit_xor` sobre o
+        hash de cada par — de modo que Portal e consumidor chegam ao mesmo valor sem
+        precisar ordenar nada. Comparar 1024 checksums é barato; varrer 300 mil linhas
+        para achar 50 divergências não é.
+
+        Serve de réplica de leitura e é agregado no banco, então não transfere dados
+        de entregador. Um consumidor detecta drift comparando faixa a faixa e só então
+        chama `GET /v1/drivers` nas faixas que não bateram.
+      parameters:
+        - name: buckets
+          in: query
+          description: |
+            Quantidade de faixas. Mais faixas isolam melhor a divergência e encarecem
+            proporcionalmente a reconciliação subsequente; menos faixas fazem o
+            contrário. 1024 sobre 300 mil entregadores dá ~293 por faixa.
+          schema:
+            type: integer
+            minimum: 16
+            maximum: 65536
+            default: 1024
+        - name: bucket
+          in: query
+          description: Restringe a resposta a uma única faixa, para reconferência após reparo.
+          schema:
+            type: integer
+            minimum: 0
+      responses:
+        '200':
+          description: Checksums calculados.
+          headers:
+            Cache-Control:
+              schema: { type: string }
+              description: Resposta cacheável por curto período; o valor muda a cada escrita na faixa.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChecksumPage'
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /v1/drivers:
+    get:
+      tags: [Reconciliação]
+      operationId: listDriversForReconciliation
+      summary: Feed de estado para reconciliação
+      description: |
+        Devolve o estado corrente dos entregadores em páginas ordenadas por
+        `(updated_at, driver_id)`, com **keyset pagination**.
+
+        O cursor é obrigatório a partir da segunda página e codifica o último par lido.
+        `OFFSET` não é oferecido de propósito: em 300 mil linhas ele degrada para
+        varredura a cada página e o custo cresce quadraticamente ao longo da
+        paginação — exatamente o comportamento que não se quer durante uma
+        recuperação, que é quando este endpoint é usado.
+
+        Sempre servido de réplica de leitura. Sujeito a rate limit adaptativo: sob
+        carga alta o Portal reduz o teto e o cliente deve respeitar `Retry-After`
+        em vez de insistir.
+      parameters:
+        - name: bucket
+          in: query
+          description: |
+            Restringe ao conjunto de faixas divergentes apontadas por
+            `/v1/drivers/checksums`. Reconciliação sem este filtro é varredura completa
+            e só se justifica em onboarding de consumidor novo — para o qual o caminho
+            recomendado é o tópico compactado, não este endpoint.
+          schema:
+            type: array
+            items: { type: integer, minimum: 0 }
+          style: form
+          explode: false
+        - name: buckets
+          in: query
+          description: Total de faixas usado no cálculo de `bucket`. Deve casar com o valor consultado nos checksums.
+          schema: { type: integer, minimum: 16, maximum: 65536, default: 1024 }
+        - name: updated_since
+          in: query
+          description: Limita a entregadores alterados a partir deste instante.
+          schema: { type: string, format: date-time }
+        - name: cursor
+          in: query
+          description: Cursor opaco devolvido em `next_cursor`. Ausente na primeira página.
+          schema: { type: string }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 1000, default: 200 }
+      responses:
+        '200':
+          description: Página de estado.
+          headers:
+            X-RateLimit-Remaining:
+              schema: { type: integer }
+            X-RateLimit-Reset:
+              schema: { type: integer }
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriverPage'
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /v1/drivers/{driver_id}/sensitive:
+    get:
+      tags: [Dados sensíveis]
+      operationId: resolveDriverSensitiveData
+      summary: Resolve tokens opacos em dados pessoais
+      description: |
+        Traduz os tokens carregados nos eventos (`document_token`, `plate_token`) nos
+        valores reais.
+
+        Exige escopo `drivers.pii` além do escopo de leitura, e **toda chamada é
+        registrada** com identidade do chamador, campos solicitados e justificativa.
+        A separação existe para que a maioria dos consumidores opere sem nunca
+        receber PII: o motor de despacho da Ultra-rápida decide elegibilidade com
+        `document_type`, que é classificação e não dado pessoal, e por isso não
+        precisa deste endpoint.
+
+        Entregadores cuja chave de criptografia foi destruída no fluxo de apagamento
+        (LGPD) respondem `410 Gone` — ver ADR-007.
+      parameters:
+        - name: driver_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: fields
+          in: query
+          required: true
+          description: Campos a resolver. Pedir mais do que o necessário amplia a superfície de exposição e aparece na auditoria.
+          schema:
+            type: array
+            items:
+              type: string
+              enum: [document_number, plate, full_name, phone, address]
+          style: form
+          explode: false
+        - name: purpose
+          in: query
+          required: true
+          description: Justificativa da finalidade, registrada na trilha de auditoria.
+          schema:
+            type: string
+            enum: [dispatch_support, fraud_investigation, regulatory_request, driver_support]
+      security:
+        - oauth2: [drivers.read, drivers.pii]
+      responses:
+        '200':
+          description: Dados resolvidos.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SensitiveData'
+        '403':
+          description: Chamador autenticado mas sem escopo `drivers.pii` ou sem finalidade aceita.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '410':
+          description: |
+            Dado apagado de forma irreversível por solicitação do titular. A chave de
+            criptografia do registro foi destruída; o ciphertext remanescente no log é
+            irrecuperável por construção.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  /v1/drivers/{driver_id}/resync:
+    post:
+      tags: [Operação]
+      operationId: resyncDriver
+      summary: Reemite o estado corrente de um entregador
+      description: |
+        Republica o último evento conhecido do entregador **preservando `id` e
+        `sequence` originais**.
+
+        Preservar o `id` é o que torna a operação segura: um consumidor que já
+        processou o evento vai deduplicá-lo e ignorar; um que nunca o recebeu vai
+        aplicá-lo. Gerar um `id` novo criaria um fato duplicado no log e quebraria a
+        auditoria de "quantas vezes este entregador mudou".
+
+        Ferramenta de reparo pontual, para quando os checksums acusam divergência em
+        poucos entregadores e não compensa acionar o feed de reconciliação.
+      parameters:
+        - name: driver_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      security:
+        - oauth2: [drivers.read, drivers.operate]
+      responses:
+        '202':
+          description: Reemissão enfileirada.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [driver_id, event_id, sequence, republished_to]
+                properties:
+                  driver_id: { type: string, format: uuid }
+                  event_id:
+                    type: string
+                    format: uuid
+                    description: Mesmo id do evento original — é o que garante a deduplicação no consumidor.
+                  sequence: { type: string, pattern: '^[0-9]+$' }
+                  republished_to:
+                    type: array
+                    items: { type: string }
+                    example: [drivers.status.v1, drivers.snapshot.v1]
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+components:
+  securitySchemes:
+    oauth2:
+      type: oauth2
+      description: |
+        Client credentials sobre mTLS. O certificado identifica o serviço; o token
+        carrega os escopos. `drivers.pii` é concedido a poucos clientes e revisado
+        periodicamente.
+      flows:
+        clientCredentials:
+          tokenUrl: https://auth.magalu.internal/oauth2/token
+          scopes:
+            drivers.read: Leitura de estado não sensível
+            drivers.pii: Resolução de dados pessoais
+            drivers.operate: Operações de reparo
+
+  responses:
+    Unauthorized:
+      description: Credencial ausente ou inválida.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    NotFound:
+      description: Entregador inexistente.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    TooManyRequests:
+      description: |
+        Teto de requisições atingido. O teto é adaptativo: cai quando o Portal está sob
+        carga. Clientes devem respeitar `Retry-After` — insistir durante recuperação é
+        o caminho mais curto para transformar degradação em indisponibilidade.
+      headers:
+        Retry-After:
+          schema: { type: integer }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Problem' }
+
+  schemas:
+    ChecksumPage:
+      type: object
+      required: [buckets, algorithm, computed_at, items]
+      properties:
+        buckets:
+          type: integer
+          description: Total de faixas usado no particionamento.
+        algorithm:
+          type: string
+          enum: [bit_xor_md5_driver_sequence]
+          description: |
+            `bit_xor` sobre `md5(driver_id || ':' || sequence)`. Independente de ordem,
+            o que dispensa ordenação nos dois lados da comparação.
+        computed_at: { type: string, format: date-time }
+        items:
+          type: array
+          items:
+            type: object
+            required: [bucket, driver_count, checksum]
+            properties:
+              bucket: { type: integer, minimum: 0 }
+              driver_count: { type: integer, minimum: 0 }
+              checksum:
+                type: string
+                pattern: '^[0-9a-f]{32}$'
+
+    DriverPage:
+      type: object
+      required: [items, has_more]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/DriverRecord' }
+        has_more: { type: boolean }
+        next_cursor:
+          type: string
+          nullable: true
+          description: Presente somente quando `has_more` é verdadeiro.
+
+    DriverRecord:
+      type: object
+      required: [driver_id, sequence, state]
+      description: |
+        Estado corrente do entregador com a versão que o produziu. É o mesmo objeto
+        `DriverState` transportado nos eventos — a API de reconciliação e o fluxo
+        assíncrono não divergem de modelo, o que evita duas verdades sobre a mesma
+        entidade.
+      properties:
+        driver_id: { type: string, format: uuid }
+        sequence:
+          type: string
+          pattern: '^[0-9]+$'
+          description: Versão monotônica. O consumidor aplica com a mesma regra usada nos eventos.
+        state:
+          type: object
+          description: Conforme `schemas/driver-state.schema.json`.
+
+    SensitiveData:
+      type: object
+      required: [driver_id, fields, resolved_at]
+      properties:
+        driver_id: { type: string, format: uuid }
+        resolved_at: { type: string, format: date-time }
+        fields:
+          type: object
+          additionalProperties: { type: string }
+          description: Mapa campo → valor, restrito ao que foi solicitado em `fields`.
+
+    Problem:
+      type: object
+      description: RFC 7807.
+      required: [type, title, status]
+      properties:
+        type: { type: string, format: uri }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        instance: { type: string }
