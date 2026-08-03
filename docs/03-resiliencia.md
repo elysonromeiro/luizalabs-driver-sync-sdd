@@ -31,6 +31,8 @@ Sortear no intervalo `[0, teto]` — em vez de `teto ± variação` — espalha 
 
 A sequência de tetos: 100 ms, 200 ms, 400 ms, 800 ms, 1,6 s. Cinco tentativas cobrem o soluço momentâneo. O que passa disso não é soluço — é indisponibilidade, e a resposta muda.
 
+> Implementado em `harness/lib/ultra_sync/backoff.rb`. O `sleeper` é injetável, e os specs usam `Backoff.immediate`: a corretude do consumidor não depende de quanto se espera entre tentativas, e uma suíte de resiliência que leva três segundos por exemplo é uma suíte que ninguém roda.
+
 ## Circuit breaker
 
 ```mermaid
@@ -133,6 +135,20 @@ Timeout ausente é indisponibilidade disfarçada de lentidão: sem ele, o pool d
 | Probe do breaker | 1 s | Precisa ser barato para poder ser frequente |
 
 O orçamento total de processamento de um evento fica abaixo de 10 s, com folga confortável contra o SLA de 30 s. A folga é intencional: ela absorve o backoff sem estourar o SLA numa falha isolada.
+
+## O que foi verificado contra broker real
+
+`harness/spec/messaging` executa os cenários acima contra um Kafka de verdade, em vez de descrevê-los:
+
+| Afirmação deste documento | Resultado observado |
+|---|---|
+| Indisponibilidade não gera dead letter | DLQ vazia; offset permanece em `-1` |
+| Lag é o sinal honesto durante a pausa | Lag igual à altura total do log |
+| Retomada preserva ordem e não perde evento | Projeção alcança a maior versão do lote |
+| Defeito de payload vai para a DLQ | Dead letter com código `unknown_event_type`, breaker fechado |
+| Tópico compactado serve catch-up | 100 mensagens sob uma chave → **4 retidas**, redução de 96% |
+
+A última linha é o que sustenta o custo do fan-out: um consumidor novo lê o estado corrente da base sem uma única consulta ao Portal.
 
 ## Idempotência é o que torna a retentativa segura
 

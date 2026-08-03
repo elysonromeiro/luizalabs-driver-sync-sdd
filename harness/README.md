@@ -27,6 +27,7 @@ bundle exec rspec --tag pg
 |---|---|---|
 | Sem Docker | 63 | ~0,7 s |
 | Com Postgres | 77 | ~2,5 s |
+| Com Postgres e Kafka | 84 | ~13 s |
 
 ## O que cada camada prova
 
@@ -36,6 +37,7 @@ bundle exec rspec --tag pg
 | `spec/properties` | Invariantes universais, sobre qualquer sequência gerada |
 | `spec/concurrency` | Ausência de lost update, por enumeração e contra Postgres real |
 | `spec/golden` | Regressão caso a caso das regras de despacho |
+| `spec/messaging` | Backpressure e compaction contra Kafka real |
 | `spec/contracts` | Conformidade nas duas direções com os schemas |
 
 ### Propriedades, não exemplos
@@ -75,6 +77,16 @@ lote de 500 → 4 queries
 ```
 
 A asserção é sobre contagem porque contagem é determinística e tempo é ruidoso. Uma refatoração que troque o upsert em lote por um laço não muda nenhum resultado — só o custo.
+
+### Mensageria: as duas teses contrariáveis
+
+`spec/messaging` executa contra Kafka real as duas afirmações do SDD que soam erradas para quem vem de arquitetura de requisição-resposta:
+
+**Backpressure vence fail-fast.** Dependência cai → breaker abre → consumidor pausa → **DLQ vazia**, offset congelado. Dependência volta → retoma do mesmo offset, backlog drena, nada perdido. O spec de veneno de payload é a contraparte: se tudo fosse pausa, uma mensagem defeituosa travaria o pipeline para sempre.
+
+**Compaction serve catch-up.** Um consumidor novo reconstrói a base **sem uma query ao Portal**. Medido neste broker: 100 mensagens sob uma chave compactam para **4 retidas**, 96% de redução.
+
+Nenhuma asserção depende de tempo decorrido — todas são sobre estado observável (breaker aberto, offset congelado, profundidade da DLQ, lag pelas marcas d'água do broker).
 
 ## Spec-driven na prática
 
