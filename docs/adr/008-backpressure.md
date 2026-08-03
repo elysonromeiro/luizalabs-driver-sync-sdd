@@ -63,6 +63,23 @@ A DLQ fica reservada a falha **permanente de payload** — schema inválido, tip
 
 A retentativa infinita sem pausar merece destaque porque é a que mais se parece com a escolhida. A diferença é o efeito sobre a dependência: um consumidor que retenta em laço mantém pressão sobre um banco que está tentando se recuperar, e frequentemente é o que impede a recuperação. Pausar com probe periódico dá trégua.
 
+## Verificação
+
+Esta decisão é a mais contrariável do documento, então foi executada contra Kafka real em vez de apenas afirmada. Os specs estão em `harness/spec/messaging/backpressure_spec.rb`:
+
+| Cenário | Verificado |
+|---|---|
+| Dependência cai | Breaker abre, consumidor pausa, **DLQ vazia**, offset congelado em `-1` |
+| Durante a pausa | Lag igual à altura total do log, calculado pelas marcas d'água do broker |
+| Dependência volta | Probe fecha o breaker, consumo retoma do mesmo offset, backlog drena, nenhum evento perdido |
+| Payload defeituoso | **Vai** para a DLQ, breaker permanece fechado, consumo não trava |
+
+O último é a contraparte necessária: se tudo fosse pausa, um veneno travaria o pipeline para sempre.
+
+Todas as asserções são sobre **estado observável** — breaker aberto, partições pausadas, offset congelado, profundidade da DLQ — e nenhuma sobre tempo decorrido. Asserção temporal é a origem mais comum de teste de resiliência intermitente, e seria incoerente defender que guardrail instável não é guardrail e entregar um.
+
+> **O que a implementação revelou.** Escrever estes testes expôs um bug de perda de dado no consumidor: avançar o offset para qualquer desfecho que não fosse pausa fazia com que uma mensagem em retentativa tivesse seu offset commitado — e portanto sumisse na retomada. Os desfechos que autorizam commit passaram a ser lista explícita. Expôs também que a retentativa com backoff estava documentada e não implementada, o que impedia o breaker de acumular falhas dentro de um lote.
+
 ## Consequências
 
 **Positivas**
