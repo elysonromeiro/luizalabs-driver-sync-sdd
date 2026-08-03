@@ -44,10 +44,17 @@ module UltraSync
 
     def paused? = @paused
 
-    # Desfechos que autorizam avançar o offset. A lista é explícita porque a
-    # alternativa — avançar em tudo que não seja pausa — é um bug de perda de
-    # dado: uma mensagem que falhou de forma transitória e será retentada NÃO
-    # pode ter seu offset commitado, senão desaparece na retomada.
+    # Desfechos que autorizam avançar o offset — a ÚNICA porta de saída.
+    #
+    # Ser lista explícita, e não `unless :paused`, é o que torna a regra
+    # verificável: incluir `:paused` aqui commitaria o offset de mensagens que
+    # ainda serão reentregues, e elas sumiriam na retomada. `bin/mutate` aplica
+    # exatamente essa mutação.
+    #
+    # Havia aqui um segundo guard, `break if outcome == :paused`, que tornava
+    # esta verificação inalcançável — os únicos desfechos restantes já eram
+    # committable. A mutação sobreviveu justamente por isso, e apontar código
+    # morto é um resultado tão útil quanto apontar teste faltando.
     COMMITTABLE = %i[processed dead_lettered].freeze
 
     # Processa um lote. Devolve o offset até onde é seguro commitar.
@@ -58,13 +65,7 @@ module UltraSync
     def process_batch(messages)
       messages.each do |message|
         break if @paused
-
-        outcome = handle(message)
-        break if outcome == :paused
-        # `:retry` cai aqui e NÃO avança o offset — a mensagem volta a ser
-        # entregue. Também interrompe o lote: seguir adiante entregaria as
-        # próximas fora de ordem em relação a esta.
-        break unless COMMITTABLE.include?(outcome)
+        break unless COMMITTABLE.include?(handle(message))
 
         @stats.committed_offset = message[:offset]
       end
