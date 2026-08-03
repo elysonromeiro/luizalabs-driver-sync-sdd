@@ -6,6 +6,8 @@ require_relative "ultra_sync/generated/driver_state"
 require_relative "ultra_sync/event"
 require_relative "ultra_sync/store/memory"
 require_relative "ultra_sync/event_applier"
+require_relative "ultra_sync/circuit_breaker"
+require_relative "ultra_sync/consumer"
 require_relative "ultra_sync/eligibility_policy"
 require_relative "ultra_sync/dispatch_rules"
 require_relative "ultra_sync/batch_processor"
@@ -21,6 +23,17 @@ require_relative "ultra_sync/batch_processor"
 # a gem `pg` estar disponível.
 module UltraSync
   VERSION = "1.0.0"
+
+  def self.kafka_available?(brokers: ENV.fetch("KAFKA_BROKERS", "127.0.0.1:59092"))
+    require "rdkafka"
+    config = Rdkafka::Config.new("bootstrap.servers" => brokers, "socket.timeout.ms" => 2000)
+    admin = config.admin
+    admin.metadata(nil, 3000)
+    admin.close
+    true
+  rescue LoadError, StandardError
+    false
+  end
 
   def self.postgres_store!(**opts)
     require_relative "ultra_sync/store/postgres"

@@ -14,3 +14,5 @@ gem "rspec", "~> 3.13"
 # arquivo: bibliotecas genéricas de property-based testing encolhem mal
 # sequências de eventos de domínio, e o encolhimento é justamente a parte que
 # torna uma falha diagnosticável.
+
+gem "rdkafka", "~> 0.19"      # cliente Kafka (specs :kafka)

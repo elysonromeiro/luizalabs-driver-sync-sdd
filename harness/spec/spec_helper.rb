@@ -14,13 +14,21 @@ REPO_ROOT = File.expand_path("../..", __dir__)
 #
 # Quem clona o repositório roda a suíte inteira sem Docker e vê o que sobra,
 # com uma mensagem dizendo o que está faltando e como obter.
-PG_AVAILABLE = UltraSync.postgres_available?
+PG_AVAILABLE    = UltraSync.postgres_available?
+KAFKA_AVAILABLE = UltraSync.kafka_available?
 
 unless PG_AVAILABLE
   params = UltraSync::Store::Postgres.connection_params
   warn ""
   warn "  [pg] Postgres indisponível em #{params[:host]}:#{params[:port]} — specs :pg serão pulados."
   warn "       Para rodá-los:  docker compose up -d"
+  warn ""
+end
+
+unless KAFKA_AVAILABLE
+  warn ""
+  warn "  [kafka] Broker indisponível em #{ENV.fetch('KAFKA_BROKERS', '127.0.0.1:59092')} — specs :kafka serão pulados."
+  warn "          Para rodá-los:  docker compose up -d"
   warn ""
 end
 
@@ -32,4 +40,5 @@ RSpec.configure do |config|
   config.example_status_persistence_file_path = ".rspec_status"
   config.filter_run_when_matching :focus
   config.filter_run_excluding(:pg) unless PG_AVAILABLE
+  config.filter_run_excluding(:kafka) unless KAFKA_AVAILABLE
 end
