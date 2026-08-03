@@ -35,6 +35,26 @@
     "pending": false
   },
   {
+    "file": "./spec/concurrency/pg_outbox_spec.rb",
+    "name": "Postgres: geração de versão no produtor a primeira escrita de um entregador é sempre a versão 1",
+    "pending": false
+  },
+  {
+    "file": "./spec/concurrency/pg_outbox_spec.rb",
+    "name": "Postgres: geração de versão no produtor escritores concorrentes no MESMO entregador recebem versões distintas",
+    "pending": false
+  },
+  {
+    "file": "./spec/concurrency/pg_outbox_spec.rb",
+    "name": "Postgres: geração de versão no produtor o incremento não vaza entre entregadores distintos",
+    "pending": false
+  },
+  {
+    "file": "./spec/concurrency/pg_outbox_spec.rb",
+    "name": "Postgres: geração de versão no produtor o read-modify-write que isto substituiu perde escritas sob concorrência",
+    "pending": false
+  },
+  {
     "file": "./spec/concurrency/stress_spec.rb",
     "name": "Concorrência: colisão real com threads N threads escrevendo o mesmo entregador convergem para a maior versão",
     "pending": false
@@ -232,6 +252,31 @@
   {
     "file": "./spec/reconciliation/checksum_spec.rb",
     "name": "UltraSync::Reconciliation detecção de divergência não acusa divergência quando os dois lados estão em dia",
+    "pending": false
+  },
+  {
+    "file": "./spec/reconciliation/checksum_spec.rb",
+    "name": "UltraSync::Reconciliation — semântica do agregador a forma de transporte é hexadecimal de 16 caracteres, como o contrato declara",
+    "pending": false
+  },
+  {
+    "file": "./spec/reconciliation/checksum_spec.rb",
+    "name": "UltraSync::Reconciliation — semântica do agregador normaliza o bigint com sinal do Postgres para 64 bits sem sinal",
+    "pending": false
+  },
+  {
+    "file": "./spec/reconciliation/checksum_spec.rb",
+    "name": "UltraSync::Reconciliation — semântica do agregador o agregador é auto-inverso — é XOR, não soma",
+    "pending": false
+  },
+  {
+    "file": "./spec/reconciliation/checksum_spec.rb",
+    "name": "UltraSync::Reconciliation — semântica do agregador o resultado cabe em 64 bits sem sinal, como o bigint do Postgres",
+    "pending": false
+  },
+  {
+    "file": "./spec/reconciliation/checksum_spec.rb",
+    "name": "UltraSync::Reconciliation — semântica do agregador quatro ocorrências da mesma impressão digital também cancelam",
     "pending": false
   },
   {

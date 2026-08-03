@@ -47,12 +47,18 @@ module PropertyCheck
 
   # Executa `iterations` casos. Em caso de falha, encolhe o contraexemplo
   # antes de reportar.
-  def forall(iterations: 200, seed: nil, &property)
+  #
+  # `generator:` permite trocar a forma dos casos mantendo seed, encolhimento
+  # e reprodução. Antes disso, uma propriedade que precisasse de outra forma
+  # de entrada gerava internamente com seed própria — e perdia as três coisas
+  # de uma vez. Era o caso da propriedade de colisão de versão, justamente a
+  # que existe para pegar a mutação mais sutil do repositório.
+  def forall(iterations: 200, seed: nil, generator: nil, &property)
     seed ||= (ENV["SEED"] || Random.new_seed).to_i
     rng = Random.new(seed)
 
     iterations.times do |i|
-      events = yield_generator(rng)
+      events = generator ? generator.call(rng) : yield_generator(rng)
 
       begin
         property.call(events)

@@ -43,11 +43,18 @@ RSpec.describe "Invariante: monotonicidade de versão", :invariant do
   # mesma versão. Com `<`, o segundo é corretamente descartado. Com `<=`, ele
   # sobrescreve o primeiro — e dispara uma reavaliação de elegibilidade a
   # mais, que pode virar oferta duplicada no motor de despacho.
+  #
+  # Usa `generator:` em vez de sortear internamente. A versão anterior fazia
+  # `Random.new(Random.new_seed)` dentro do bloco, o que quebrava as três
+  # garantias do harness de uma vez: o encolhimento minimizava a entrada
+  # ignorada, o contraexemplo reportado não correspondia ao caso que falhou, e
+  # `SEED=x` não reproduzia. Verificado empiricamente antes de corrigir — duas
+  # execuções com a mesma seed produziam sequências diferentes.
   it "aplica no máximo um evento por (entregador, versão), mesmo se a fonte colidir" do
-    PropertyCheck.forall(iterations: 200) do |_ignored|
-      rng    = Random.new(Random.new_seed)
-      events = Generators.colliding_versions(rng: rng)
-
+    PropertyCheck.forall(
+      iterations: 200,
+      generator: ->(rng) { Generators.colliding_versions(rng: rng) }
+    ) do |events|
       store    = UltraSync::Store::Memory.new
       applier  = UltraSync::EventApplier.new(store: store)
       outcomes = events.zip(applier.apply_all(events))
