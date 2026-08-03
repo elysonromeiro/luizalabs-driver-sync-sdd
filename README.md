@@ -44,8 +44,6 @@ Sincronizar o ciclo de vida do entregador entre os dois sistemas, respeitando tr
 
 ## 3. Estrutura deste documento
 
-> Em construção. As seções são publicadas por fase, cada uma via Pull Request.
-
 | Pilar | Documento | Estado |
 |---|---|---|
 | 1 — Arquitetura e fluxo de dados | [`docs/01-arquitetura.md`](docs/01-arquitetura.md) | **pronto** |
@@ -56,7 +54,7 @@ Sincronizar o ciclo de vida do entregador entre os dois sistemas, respeitando tr
 | 3 — Harness executável | [`harness/`](harness/README.md) | **pronto** |
 | 3 — AI harness e guardrails | [`docs/05-ai-harness.md`](docs/05-ai-harness.md) | **pronto** |
 | 3 — Repositório AI-native | [`docs/07-repo-ai-native.md`](docs/07-repo-ai-native.md) | **pronto** |
-| Especialista | `docs/06-especialista.md` | pendente |
+| Especialista | [`docs/06-especialista.md`](docs/06-especialista.md) | **pronto** |
 
 ### Rodando o harness
 
@@ -89,10 +87,11 @@ Cada decisão fica registrada como ADR, com as alternativas que foram descartada
 | [006](docs/adr/006-cloudevents.md) | CloudEvents 1.0 como envelope canônico |
 | [007](docs/adr/007-pii-e-lgpd.md) | PII fora do evento e apagamento por destruição de chave |
 | [008](docs/adr/008-backpressure.md) | Pausar o consumo sob degradação, em vez de falhar rápido |
+| [009](docs/adr/009-snapshot-compactado.md) | Tópico compactado como fonte de catch-up e bootstrap |
+| [010](docs/adr/010-reconciliacao-por-checksum.md) | Reconciliação por checksum de faixa, não por varredura |
+| [011](docs/adr/011-codegen-a-partir-do-schema.md) | Gerar constantes de domínio a partir do schema |
 | [012](docs/adr/012-arquitetura-multiagente.md) | Separação de poderes entre agentes de IA |
 | [013](docs/adr/013-estado-completo-vs-delta.md) | Eventos carregam estado completo, não delta |
-
-As ADRs 009 a 011 chegam na fase seguinte.
 
 ---
 
