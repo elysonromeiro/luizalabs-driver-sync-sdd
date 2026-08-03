@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.magalu.com.br/logistica/driver-sync/v1/envelope.schema.json",
+  "title": "Envelope canônico de evento",
+  "description": "Envelope de todos os eventos do Motor de Sincronização de Entregadores, aderente a CloudEvents 1.0 em JSON Event Format. O par (source, id) identifica unicamente um evento e é a chave de deduplicação do consumidor — não existe extensão de idempotência separada, para não criar duas fontes de verdade sobre a mesma decisão.",
+  "type": "object",
+  "required": [
+    "specversion",
+    "id",
+    "source",
+    "type",
+    "time",
+    "subject",
+    "sequence",
+    "sequencetype",
+    "partitionkey",
+    "datacontenttype",
+    "dataschema",
+    "data"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "specversion": {
+      "description": "Versão da especificação CloudEvents.",
+      "const": "1.0"
+    },
+    "id": {
+      "description": "Identificador do evento, único dentro de um mesmo source. Reemissões do MESMO fato (retentativa do relay) devem reutilizar este id; um fato novo exige id novo. É sobre ele que o consumidor deduplica.",
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "source": {
+      "description": "Sistema emissor. Compõe a chave de unicidade junto com id.",
+      "type": "string",
+      "format": "uri-reference",
+      "examples": ["/magalu/logistica/portal-entregadores"]
+    },
+    "type": {
+      "description": "Tipo do evento, com a versão maior do contrato no sufixo.",
+      "type": "string",
+      "pattern": "^br\\.com\\.magalu\\.logistica\\.driver\\.[a-z_]+\\.v[0-9]+$"
+    },
+    "time": {
+      "description": "Instante em que o fato ocorreu na fonte, RFC 3339 em UTC. Serve para auditoria e observabilidade — NUNCA para ordenar eventos. Ordenação usa `sequence`. Ver ADR-003.",
+      "type": "string",
+      "format": "date-time"
+    },
+    "subject": {
+      "description": "Identificador do entregador ao qual o evento se refere.",
+      "type": "string",
+      "format": "uuid"
+    },
+    "sequence": {
+      "description": "Extensão CloudEvents Sequence. Contador monotônico por entregador, atribuído pela fonte dentro da mesma transação que muda o estado. É o ÚNICO critério de ordenação: o consumidor aplica o evento apenas se sequence for maior que a versão já projetada. Transportado como string para preservar precisão além de 2^53 em consumidores JavaScript.",
+      "type": "string",
+      "pattern": "^[0-9]+$"
+    },
+    "sequencetype": {
+      "description": "Extensão CloudEvents Sequence — declara como interpretar `sequence`.",
+      "const": "Integer"
+    },
+    "partitionkey": {
+      "description": "Extensão CloudEvents Partitioning. Igual a `subject`: garante que todos os eventos de um mesmo entregador caiam na mesma partição e, portanto, sejam entregues em ordem dentro do broker.",
+      "type": "string",
+      "format": "uuid"
+    },
+    "traceparent": {
+      "description": "Extensão CloudEvents Distributed Tracing (W3C Trace Context). Propaga o trace da requisição que originou a mudança até o consumidor.",
+      "type": "string",
+      "pattern": "^[0-9a-f]{2}-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2}$"
+    },
+    "tracestate": {
+      "description": "Extensão CloudEvents Distributed Tracing (W3C Trace Context).",
+      "type": "string"
+    },
+    "dataclassification": {
+      "description": "Extensão proprietária. Declara a sensibilidade do payload para que o consumidor aplique a política de retenção e mascaramento correta. Eventos deste contrato nunca carregam PII em claro — ver ADR-007.",
+      "enum": ["public", "internal", "restricted"],
+      "default": "internal"
+    },
+    "datacontenttype": {
+      "const": "application/json"
+    },
+    "dataschema": {
+      "description": "URI do JSON Schema que valida `data`. Permite ao consumidor resolver o contrato exato sem inferir pelo `type`.",
+      "type": "string",
+      "format": "uri"
+    },
+    "data": {
+      "description": "Payload do evento. A forma concreta é definida pelo schema apontado em `dataschema`.",
+      "type": "object"
+    }
+  }
+}
