@@ -176,3 +176,47 @@ RSpec.describe "Guardrails: documentação versus código" do
     end
   end
 end
+
+# Diagramas precisam RENDERIZAR no GitHub, não apenas parsear.
+#
+# O GitHub renderiza mermaid com `securityLevel: strict`, que desabilita HTML
+# nos rótulos. Um `<b>Portal</b>` não fica em negrito — aparece como texto
+# literal dentro do nó, e o diagrama sai ilegível. A sintaxe está correta, o
+# parser aceita, e o resultado visual é lixo.
+#
+# Encontrado quando o autor reportou que o GitHub "não estava renderizando".
+# Nove blocos tinham HTML. `<br/>` é a única tag suportada de forma
+# consistente e permanece.
+RSpec.describe "Guardrails: diagramas Mermaid" do
+  DOCS_ROOT = File.expand_path("../../..", __dir__)
+
+  def mermaid_blocks
+    Dir[File.join(DOCS_ROOT, "{README.md,docs/**/*.md}")].flat_map do |path|
+      File.read(path).scan(/```mermaid\n(.*?)```/m).flatten.map { |body| [path, body] }
+    end
+  end
+
+  it "existem diagramas para verificar" do
+    expect(mermaid_blocks.size).to be >= 10
+  end
+
+  it "nenhum rótulo usa HTML além de <br/>" do
+    offenders = mermaid_blocks.flat_map do |path, body|
+      body.scan(%r{</?(\w+)[^>]*>}).flatten
+          .reject { |tag| tag.casecmp("br").zero? }
+          .map { |tag| "#{path.sub("#{DOCS_ROOT}/", '')}: <#{tag}>" }
+    end
+
+    expect(offenders.uniq).to be_empty,
+                              "o GitHub renderiza mermaid com securityLevel strict — estas tags " \
+                              "aparecem como texto literal no diagrama:\n  #{offenders.uniq.join("\n  ")}"
+  end
+
+  it "as cercas não têm espaço à direita, que impede o GitHub de reconhecer o bloco" do
+    bad = Dir[File.join(DOCS_ROOT, "{README.md,docs/**/*.md}")].select do |path|
+      File.read(path).match?(/^```mermaid[ \t]+$/)
+    end
+
+    expect(bad).to be_empty
+  end
+end

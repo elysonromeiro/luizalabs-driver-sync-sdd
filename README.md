@@ -13,11 +13,11 @@ O sistema se apoia em cinco decisões encadeadas. A ordem importa: cada uma só 
 
 ```mermaid
 flowchart LR
-    A["<b>Estado completo</b><br/>evento carrega o<br/>entregador inteiro"]
-    B["<b>Versão monotônica</b><br/>ordem lógica em<br/>um predicado SQL"]
-    C["<b>Escrita condicional</b><br/>sem lock,<br/>sem lost update"]
-    D["<b>Canais por criticidade</b><br/>ativação não espera<br/>backlog de perfil"]
-    E["<b>Snapshot compactado</b><br/>fan-out sem custo<br/>para a fonte"]
+    A["Estado completo<br/>evento carrega o<br/>entregador inteiro"]
+    B["Versão monotônica<br/>ordem lógica em<br/>um predicado SQL"]
+    C["Escrita condicional<br/>sem lock,<br/>sem lost update"]
+    D["Canais por criticidade<br/>ativação não espera<br/>backlog de perfil"]
+    E["Snapshot compactado<br/>fan-out sem custo<br/>para a fonte"]
 
     A -->|habilita| B
     B -->|habilita| C
@@ -188,6 +188,16 @@ Cada uma com as alternativas descartadas e o motivo.
 | **Especialista** — Reconciliação e catch-up | [ADR-010](docs/adr/010-reconciliacao-por-checksum.md) | paridade SQL × Ruby |
 | **Especialista** — Governança de dados | [06-especialista](docs/06-especialista.md) | `bin/schema_compat` |
 | **Segurança** | [04-seguranca](docs/04-seguranca.md) | — |
+
+### Divergências declaradas em relação ao enunciado
+
+| Enunciado | Aqui | Motivo |
+|---|---|---|
+| "RSpec/FactoryBot" | RSpec + fábricas próprias | Testes de propriedade exigem reprodução por seed; FactoryBot não oferece |
+| Core em Ruby on Rails | Harness em Ruby puro | Nenhuma invariante é sobre o ORM; o SQL do Rails está documentado em [02-concorrencia](docs/02-concorrencia.md) |
+| "C4 Model ou diagrama sequencial/de blocos" | Blocos e sequência | Os blocos C4 do Mermaid são experimentais e renderizam de forma inconsistente no GitHub |
+
+Detalhado em [`harness/README.md`](harness/README.md).
 
 ### O que este desenho não resolve
 
