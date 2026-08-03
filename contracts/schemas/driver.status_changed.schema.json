@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.magalu.com.br/logistica/driver-sync/v1/driver.status_changed.schema.json",
+  "title": "driver.status_changed",
+  "description": "Transição de estado no ciclo de vida do entregador: ativação, inativação, bloqueio de segurança, desligamento. Trafega pelo fast-lane (`drivers.status.v1`), em canal separado do tráfego de perfil. O motivo é operacional, não estético: depois de uma indisponibilidade, a ativação de um entregador não pode ficar atrás de horas de backlog de atualização de perfil. Ver ADR-005.",
+  "allOf": [
+    { "$ref": "https://schemas.magalu.com.br/logistica/driver-sync/v1/envelope.schema.json" },
+    {
+      "type": "object",
+      "properties": {
+        "type": { "const": "br.com.magalu.logistica.driver.status_changed.v1" },
+        "data": { "$ref": "#/$defs/Data" }
+      }
+    }
+  ],
+  "$defs": {
+    "Data": {
+      "type": "object",
+      "required": ["driver", "previous_status", "reason"],
+      "additionalProperties": false,
+      "properties": {
+        "driver": {
+          "description": "Estado COMPLETO após a transição. `driver.status` é o novo status.",
+          "$ref": "https://schemas.magalu.com.br/logistica/driver-sync/v1/driver-state.schema.json"
+        },
+        "previous_status": {
+          "description": "Status imediatamente anterior no Portal. Metadado de auditoria: o consumidor NÃO deve condicionar a aplicação a ele, porque um evento pode chegar depois de outro já ter avançado o estado. A decisão de aplicar ou descartar é sempre por `sequence`.",
+          "$ref": "https://schemas.magalu.com.br/logistica/driver-sync/v1/driver-state.schema.json#/$defs/DriverStatus"
+        },
+        "reason": {
+          "$ref": "#/$defs/Reason"
+        }
+      }
+    },
+    "Reason": {
+      "description": "Por que a transição aconteceu. Dirige priorização e trilha de auditoria.",
+      "type": "object",
+      "required": ["code"],
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "enum": [
+            "approval_granted",
+            "approval_revoked",
+            "security_block",
+            "fraud_suspicion",
+            "document_expired",
+            "background_check_failed",
+            "driver_requested",
+            "inactivity",
+            "offboarding"
+          ]
+        },
+        "detail": {
+          "description": "Texto livre para auditoria humana. Nunca deve conter PII.",
+          "type": "string",
+          "maxLength": 500
+        },
+        "actor": {
+          "description": "Quem originou a transição.",
+          "type": "object",
+          "required": ["kind"],
+          "additionalProperties": false,
+          "properties": {
+            "kind": { "enum": ["driver", "operator", "system"] },
+            "id_token": {
+              "description": "Token opaco do ator, quando humano. O identificador real fica atrás de API autorizada.",
+              "type": "string",
+              "pattern": "^tok_[A-Za-z0-9]{24,64}$"
+            }
+          }
+        }
+      }
+    }
+  }
+}
