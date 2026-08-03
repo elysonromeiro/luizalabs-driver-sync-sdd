@@ -65,4 +65,4 @@ Se a organização não tiver acesso a Kafka gerenciado e não tiver quem opere 
 
 - [ADR-002](002-outbox-vs-cdc.md) — como os eventos chegam ao broker
 - [ADR-005](005-fast-lane.md) — separação de canais por criticidade
-- [ADR-009](009-snapshot-compactado.md) — uso da compaction para catch-up
+- ADR-009 — uso da compaction para catch-up

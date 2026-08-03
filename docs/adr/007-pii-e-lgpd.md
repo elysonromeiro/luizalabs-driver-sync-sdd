@@ -8,7 +8,7 @@
 O cadastro de entregador contém dado pessoal: CPF ou CNPJ, nome, telefone, endereço, placa. Duas decisões anteriores tornam isso um problema específico, não genérico:
 
 1. **Estado completo** ([ADR-013](013-estado-completo-vs-delta.md)) — o entregador inteiro trafega em todo evento. O que estiver no payload estará em toda mensagem, replicado em todas as réplicas de todas as partições.
-2. **Tópico compactado** ([ADR-009](009-snapshot-compactado.md)) — `drivers.snapshot.v1` retém o último estado **indefinidamente**. Não há retenção que expire.
+2. **Tópico compactado** (ADR-009) — `drivers.snapshot.v1` retém o último estado **indefinidamente**. Não há retenção que expire.
 
 Junte as duas e o resultado é: qualquer PII no payload vive para sempre num log append-only replicado. A LGPD garante ao titular o direito à eliminação (art. 18, VI), e um log append-only é, por definição, o lugar mais difícil de apagar algo.
 
@@ -87,5 +87,5 @@ A terceira é a que mais parece funcionar e não funciona: uma chave global prot
 ## Relacionadas
 
 - [ADR-013](013-estado-completo-vs-delta.md) — por que o estado inteiro trafega
-- [ADR-009](009-snapshot-compactado.md) — retenção indefinida do snapshot
+- ADR-009 — retenção indefinida do snapshot
 - [04-seguranca.md](../04-seguranca.md) — superfície de ataque completa

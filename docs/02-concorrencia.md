@@ -33,7 +33,7 @@ end
 
 **Por que desfecho e não booleano.** Com estado completo, reaplicar um evento de versão igual produz exatamente o mesmo estado — a diferença entre certo e errado é invisível se olharmos apenas a projeção. Ela aparece no efeito colateral: cada escrita efetiva dispara reavaliação de elegibilidade, que pode emitir oferta ao motor de despacho. Um applier que retorna booleano não deixa nenhum teste distinguir "aplicou" de "ignorou corretamente", e a suíte passa a aceitar silenciosamente a troca de `<` por `<=`.
 
-Esse é o mesmo raciocínio que sustenta o mutation testing do [Pilar 3](05-ai-harness.md): um teste que não consegue observar a diferença não protege nada.
+Esse é o mesmo raciocínio que sustenta o mutation testing do Pilar 3 (`05-ai-harness.md`): um teste que não consegue observar a diferença não protege nada.
 
 ## Duas defesas, coisas diferentes
 
@@ -220,7 +220,7 @@ O harness conta as queries emitidas e falha se o número crescer com o tamanho d
 | Ausência de lost update | Entrelaçamentos enumerados + colisão real em Postgres |
 | Ausência de N+1 | Contagem de queries constante no tamanho do lote |
 
-Detalhado em [05-ai-harness.md](05-ai-harness.md).
+Detalhado em `docs/05-ai-harness.md`.
 
 ## Relacionadas
 

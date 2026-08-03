@@ -48,16 +48,32 @@ Sincronizar o ciclo de vida do entregador entre os dois sistemas, respeitando tr
 
 | Pilar | Documento | Estado |
 |---|---|---|
-| 1 — Arquitetura e fluxo de dados | `docs/01-arquitetura.md` | pendente |
-| 1 — Concorrência e idempotência | `docs/02-concorrencia.md` | pendente |
-| 1 — Resiliência e tolerância a falhas | `docs/03-resiliencia.md` | pendente |
-| 1 — Segurança e dados sensíveis | `docs/04-seguranca.md` | pendente |
+| 1 — Arquitetura e fluxo de dados | [`docs/01-arquitetura.md`](docs/01-arquitetura.md) | **pronto** |
+| 1 — Concorrência e idempotência | [`docs/02-concorrencia.md`](docs/02-concorrencia.md) | **pronto** |
+| 1 — Resiliência e tolerância a falhas | [`docs/03-resiliencia.md`](docs/03-resiliencia.md) | **pronto** |
+| 1 — Segurança e dados sensíveis | [`docs/04-seguranca.md`](docs/04-seguranca.md) | **pronto** |
 | 2 — Contratos de eventos | [`contracts/`](contracts/README.md) | **pronto** |
 | 3 — AI harness e guardrails | `docs/05-ai-harness.md` | pendente |
 | 3 — Repositório AI-native | `docs/07-repo-ai-native.md` | pendente |
 | Especialista | `docs/06-especialista.md` | pendente |
 
-Decisões arquiteturais ficam registradas como ADRs em `docs/adr/`, cada uma com o *trade-off* que a motivou.
+### Decisões arquiteturais
+
+Cada decisão fica registrada como ADR, com as alternativas que foram descartadas e o motivo.
+
+| ADR | Decisão |
+|---|---|
+| [001](docs/adr/001-broker.md) | Kafka como backbone — replay e compaction decidem, não throughput |
+| [002](docs/adr/002-outbox-vs-cdc.md) | Transactional Outbox com relay, CDC como evolução |
+| [003](docs/adr/003-ordenacao-por-versao.md) | Ordenação por versão monotônica, não por relógio |
+| [004](docs/adr/004-locking.md) | Escrita condicional como padrão, lock pessimista por exceção |
+| [005](docs/adr/005-fast-lane.md) | Canais separados por criticidade, não por entidade |
+| [006](docs/adr/006-cloudevents.md) | CloudEvents 1.0 como envelope canônico |
+| [007](docs/adr/007-pii-e-lgpd.md) | PII fora do evento e apagamento por destruição de chave |
+| [008](docs/adr/008-backpressure.md) | Pausar o consumo sob degradação, em vez de falhar rápido |
+| [013](docs/adr/013-estado-completo-vs-delta.md) | Eventos carregam estado completo, não delta |
+
+As ADRs 009 a 012 chegam nas fases seguintes.
 
 ---
 

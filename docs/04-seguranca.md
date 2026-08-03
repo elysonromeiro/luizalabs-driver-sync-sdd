@@ -84,7 +84,7 @@ A paginação por keyset foi escolhida por desempenho ([openapi.yaml](../contrac
 - Credenciais e chaves em KMS, injetadas em runtime. Nada de segredo em imagem, variável de ambiente commitada ou arquivo de configuração.
 - `Gemfile.lock` versionado e verificação de vulnerabilidade (`bundler-audit`) no CI.
 - Imagens fixadas por digest, não por tag móvel.
-- Dependência nova em path crítico exige revisão humana via CODEOWNERS — o mesmo mecanismo que protege as invariantes contra código gerado por IA ([05-ai-harness.md](05-ai-harness.md)).
+- Dependência nova em path crítico exige revisão humana via CODEOWNERS — o mesmo mecanismo que protege as invariantes contra código gerado por IA (`docs/05-ai-harness.md`).
 
 Esse último ponto merece registro: num repositório onde agentes de IA geram código, **a cadeia de suprimentos inclui o agente**. Uma dependência introduzida por sugestão automática tem o mesmo peso de uma escolhida por uma pessoa, e passa pela mesma porta.
 

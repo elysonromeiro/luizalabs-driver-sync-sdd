@@ -70,4 +70,4 @@ A terceira é a mais tentadora e a mais enganosa: parece resolver e apenas troca
 
 - [ADR-003](003-ordenacao-por-versao.md) — espaço de versão único
 - [ADR-013](013-estado-completo-vs-delta.md) — estado completo
-- [ADR-009](009-snapshot-compactado.md) — o terceiro canal, para catch-up
+- ADR-009 — o terceiro canal, para catch-up
