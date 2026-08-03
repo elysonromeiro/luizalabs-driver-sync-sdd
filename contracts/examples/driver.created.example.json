@@ -1,0 +1,40 @@
+{
+  "specversion": "1.0",
+  "id": "0f8b1c2e-6a3d-4f51-9c7a-2b8e5d1a4067",
+  "source": "/magalu/logistica/portal-entregadores",
+  "type": "br.com.magalu.logistica.driver.created.v1",
+  "time": "2026-08-03T02:14:07.512Z",
+  "subject": "3c9a7e14-52b8-4d6f-8a03-e71f9b2c5d48",
+  "sequence": "1",
+  "sequencetype": "Integer",
+  "partitionkey": "3c9a7e14-52b8-4d6f-8a03-e71f9b2c5d48",
+  "traceparent": "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+  "dataclassification": "internal",
+  "datacontenttype": "application/json",
+  "dataschema": "https://schemas.magalu.com.br/logistica/driver-sync/v1/driver.created.schema.json",
+  "data": {
+    "driver": {
+      "driver_id": "3c9a7e14-52b8-4d6f-8a03-e71f9b2c5d48",
+      "status": "pending_approval",
+      "document_type": "cnpj",
+      "document_token": "tok_9Hn2QpVx4LrT8mKdZbW3aYcE",
+      "vehicle": {
+        "type": "motorcycle",
+        "plate_token": "tok_R7fLp2XmQ9vBn4KsHt6WdYzA",
+        "cargo_capacity_kg": 30
+      },
+      "delivery_radius_km": 12.5,
+      "operating_area": {
+        "ibge_city_code": "3550308",
+        "uf": "SP"
+      },
+      "segments": ["goods", "food"],
+      "compliance": {
+        "background_check": "pending",
+        "documents_valid_until": "2027-05-30"
+      },
+      "created_at": "2026-08-03T02:14:07.418Z",
+      "updated_at": "2026-08-03T02:14:07.418Z"
+    }
+  }
+}

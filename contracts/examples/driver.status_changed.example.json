@@ -1,0 +1,50 @@
+{
+  "specversion": "1.0",
+  "id": "7d2f4a81-3e6c-4b95-8f07-c1a9d5e2b437",
+  "source": "/magalu/logistica/portal-entregadores",
+  "type": "br.com.magalu.logistica.driver.status_changed.v1",
+  "time": "2026-08-03T14:07:33.256Z",
+  "subject": "3c9a7e14-52b8-4d6f-8a03-e71f9b2c5d48",
+  "sequence": "5",
+  "sequencetype": "Integer",
+  "partitionkey": "3c9a7e14-52b8-4d6f-8a03-e71f9b2c5d48",
+  "traceparent": "00-2f8c6b1a9d4e7053f2a1b8c7d6e5f403-9182736455647382-01",
+  "dataclassification": "internal",
+  "datacontenttype": "application/json",
+  "dataschema": "https://schemas.magalu.com.br/logistica/driver-sync/v1/driver.status_changed.schema.json",
+  "data": {
+    "previous_status": "active",
+    "reason": {
+      "code": "security_block",
+      "detail": "Bloqueio preventivo por divergencia de geolocalizacao em tres corridas consecutivas",
+      "actor": {
+        "kind": "system",
+        "id_token": "tok_5TgYh8NmPz3QwXr7VkBc2LdJ"
+      }
+    },
+    "driver": {
+      "driver_id": "3c9a7e14-52b8-4d6f-8a03-e71f9b2c5d48",
+      "status": "blocked",
+      "document_type": "cnpj",
+      "document_token": "tok_9Hn2QpVx4LrT8mKdZbW3aYcE",
+      "vehicle": {
+        "type": "car",
+        "plate_token": "tok_M3kQw8ZpN5xTvB2rLcHy7JdF",
+        "cargo_capacity_kg": 220
+      },
+      "delivery_radius_km": 25,
+      "operating_area": {
+        "ibge_city_code": "3550308",
+        "uf": "SP"
+      },
+      "segments": ["goods"],
+      "compliance": {
+        "background_check": "approved",
+        "documents_valid_until": "2027-05-30",
+        "approved_at": "2026-08-03T06:02:55.771Z"
+      },
+      "created_at": "2026-08-03T02:14:07.418Z",
+      "updated_at": "2026-08-03T14:07:33.102Z"
+    }
+  }
+}
