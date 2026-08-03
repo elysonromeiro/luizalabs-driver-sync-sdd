@@ -103,6 +103,40 @@ MUTATIONS = [
     label: "offset avança mesmo com o consumo pausado — mensagens somem na retomada"
   },
   {
+    file:  "lib/ultra_sync/outbox.rb",
+    from:  "sequence = @store.advance_version!(driver_id: driver_id, state: state)",
+    to:    "sequence = (@store.fetch(driver_id)&.source_version || 0) + 1",
+    label: "produtor volta ao read-modify-write — perde escrita sob concorrência"
+  },
+  {
+    file:  "lib/ultra_sync/store/memory.rb",
+    from:  "next_version = (current&.source_version || 0) + 1",
+    to:    "next_version = (current&.source_version || 0)",
+    label: "incremento de versão não avança — o Portal para de emitir fatos novos"
+  },
+  {
+    file:  "lib/ultra_sync/schema_validator.rb",
+    # NÃO mutar `known_type?` para `true`: é mutante EQUIVALENTE. Com ele
+    # verdadeiro, o fluxo cai no rescue de Event::UnknownType e produz o mesmo
+    # código de dead letter — defesa em profundidade intencional. Mutante
+    # equivalente é ruído, e ruído faz o time desligar a ferramenta.
+    from:  "      schemer_for(schema_id).validate(envelope).map do |error|",
+    to:    "      [].map do |error|",
+    label: "validação de contrato desligada — payload fora do schema é aplicado"
+  },
+  {
+    file:  "lib/ultra_sync/reconciliation.rb",
+    from:  "def self.canonical(value) = value & MASK64",
+    to:    "def self.canonical(value) = value",
+    label: "checksum sem normalização — Ruby e Postgres divergem em toda faixa"
+  },
+  {
+    file:  "lib/ultra_sync/reconciliation.rb",
+    from:  "entry[:checksum] ^= fingerprint(projection.driver_id, projection.source_version)",
+    to:    "entry[:checksum] += fingerprint(projection.driver_id, projection.source_version)",
+    label: "checksum deixa de ser independente de ordem"
+  },
+  {
     file:  "lib/ultra_sync/circuit_breaker.rb",
     from:  "@failure_count >= @threshold",
     to:    "@failure_count >= @threshold + 100",

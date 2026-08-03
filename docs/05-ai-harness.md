@@ -45,7 +45,7 @@ source_version nunca decresce             monotonicidade
 N réplicas convergem                      convergência
 ```
 
-**80 invariantes**, em `harness/spec/properties/` e `harness/spec/concurrency/`.
+**85 invariantes**, em `harness/spec/properties/` e `harness/spec/concurrency/`.
 
 O gerador e o encolhedor são próprios, sem gem externa. A razão é encolhimento, não dependências: bibliotecas genéricas minimizam bem valores escalares e mal sequências de eventos de domínio — o contraexemplo que produzem costuma violar invariantes da fonte e não diagnostica nada.
 
@@ -75,16 +75,16 @@ Cobertura mede quais linhas rodaram, não se alguém olhou o resultado. `expect(
 $ bin/mutate
 [ 1/12] memory.rb            morta
 ...
-[12/12] circuit_breaker.rb   morta
+[17/17] circuit_breaker.rb   morta
 
-Todas as 12 mutações foram mortas pela suíte.
+Todas as 17 mutações foram mortas pela suíte.
 ```
 
 **Este guardrail já se pagou duas vezes**, e as duas histórias valem mais que o número:
 
 **Primeira.** Na Fase 3, trocar `<` por `<=` na escrita condicional **sobreviveu a todas as quatro propriedades**. O gerador emitia versões estritamente crescentes por entregador, então dois eventos nunca colidiam de versão e os operadores eram indistinguíveis. A suíte parecia completa e tinha um vazio exatamente na comparação central do desenho. A propriedade que faltava foi escrita por causa disso.
 
-**Segunda.** Na primeira execução completa, **3 de 12 mutações sobreviveram**. `Consumer` e `CircuitBreaker` não tinham nenhum teste rápido — a proteção existia só em `spec/messaging`, que é `:kafka` e não roda em cada PR. Um guardrail que só age com Docker no ar protege menos do que aparenta.
+**Segunda.** Na primeira execução completa, **3 de 17 mutações sobreviveram**. `Consumer` e `CircuitBreaker` não tinham nenhum teste rápido — a proteção existia só em `spec/messaging`, que é `:kafka` e não roda em cada PR. Um guardrail que só age com Docker no ar protege menos do que aparenta.
 
 Corrigir isso expôs um terceiro problema: duplicata **dentro do mesmo lote** não era contabilizada, porque nem o `ON CONFLICT DO NOTHING` do Postgres nem o adapter em memória distinguem repetição da mesma chave na mesma instrução. O processamento em lote não era equivalente ao individual — que é justamente a propriedade de convergência que o harness afirma.
 

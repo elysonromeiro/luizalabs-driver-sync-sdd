@@ -255,6 +255,31 @@
     "pending": false
   },
   {
+    "file": "./spec/reconciliation/checksum_spec.rb",
+    "name": "UltraSync::Reconciliation — semântica do agregador a forma de transporte é hexadecimal de 16 caracteres, como o contrato declara",
+    "pending": false
+  },
+  {
+    "file": "./spec/reconciliation/checksum_spec.rb",
+    "name": "UltraSync::Reconciliation — semântica do agregador normaliza o bigint com sinal do Postgres para 64 bits sem sinal",
+    "pending": false
+  },
+  {
+    "file": "./spec/reconciliation/checksum_spec.rb",
+    "name": "UltraSync::Reconciliation — semântica do agregador o agregador é auto-inverso — é XOR, não soma",
+    "pending": false
+  },
+  {
+    "file": "./spec/reconciliation/checksum_spec.rb",
+    "name": "UltraSync::Reconciliation — semântica do agregador o resultado cabe em 64 bits sem sinal, como o bigint do Postgres",
+    "pending": false
+  },
+  {
+    "file": "./spec/reconciliation/checksum_spec.rb",
+    "name": "UltraSync::Reconciliation — semântica do agregador quatro ocorrências da mesma impressão digital também cancelam",
+    "pending": false
+  },
+  {
     "file": "./spec/reconciliation/pg_parity_spec.rb",
     "name": "Reconciliação: paridade entre Ruby e SQL a expressão SQL produz o mesmo checksum que o cálculo em Ruby",
     "pending": false
