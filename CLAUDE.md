@@ -91,7 +91,7 @@ bin/coupled_change    # mudança crítica exige mudança em spec/
 Com Docker no ar, a suíte completa:
 
 ```bash
-docker compose up -d && bundle exec rspec   # 165 exemplos
+docker compose up -d && bundle exec rspec   # 168 exemplos
 ```
 
 ---
