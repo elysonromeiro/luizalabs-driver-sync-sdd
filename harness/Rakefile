@@ -1,0 +1,19 @@
+# frozen_string_literal: true
+
+require "rspec/core/rake_task"
+
+RSpec::Core::RakeTask.new(:spec)
+
+desc "Suíte rápida — sem dependências externas"
+RSpec::Core::RakeTask.new(:fast) { |t| t.rspec_opts = "--tag ~pg --tag ~kafka" }
+
+desc "Apenas as invariantes"
+RSpec::Core::RakeTask.new(:invariants) { |t| t.rspec_opts = "--tag invariant" }
+
+desc "Verifica que o código gerado não divergiu do contrato"
+task(:generated) { sh "bin/generate --check" }
+
+desc "Verifica links da documentação"
+task(:docs) { sh "bin/check_docs" }
+
+task default: %i[generated spec docs]

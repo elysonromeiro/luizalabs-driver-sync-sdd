@@ -1,0 +1,16 @@
+# frozen_string_literal: true
+
+source "https://rubygems.org"
+
+ruby ">= 3.1"
+
+gem "concurrent-ruby", "~> 1.3"   # CyclicBarrier no stress de concorrência
+gem "json_schemer", "~> 2.3"      # conformidade dos exemplos com os contratos
+gem "pg", "~> 1.5"                # specs :pg contra Postgres real
+gem "rspec", "~> 3.13"
+
+# Geração de casos para os testes de propriedade é implementada em
+# spec/properties/generators.rb, sem gem externa. Ver a nota no topo daquele
+# arquivo: bibliotecas genéricas de property-based testing encolhem mal
+# sequências de eventos de domínio, e o encolhimento é justamente a parte que
+# torna uma falha diagnosticável.
