@@ -1,0 +1,78 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Verifica a integridade da documentação:
+#   1. Todo link interno em Markdown aponta para arquivo existente
+#   2. Toda âncora usada existe como cabeçalho no arquivo alvo
+#
+# Roda no CI. Documentação com link quebrado é documentação que ninguém
+# navegou — e num SDD cuja tese é que a spec é fonte da verdade, o mínimo
+# é que a spec seja navegável.
+#
+#   bin/check_docs           verifica a partir da raiz do repositório
+#   bin/check_docs --quiet   só reporta falhas
+
+require "set"
+
+ROOT = File.expand_path("../..", __dir__)
+QUIET = ARGV.include?("--quiet")
+
+def slugify(heading)
+  heading
+    .downcase
+    .gsub(/[`*_~]/, "")
+    .gsub(/[^\p{Alnum}\s-]/, "")
+    .strip
+    .gsub(/\s+/, "-")
+end
+
+def anchors_in(path)
+  return Set.new unless File.file?(path)
+
+  File.readlines(path).each_with_object(Set.new) do |line, set|
+    set << slugify(Regexp.last_match(1)) if line =~ /^#{'#'}{1,6}\s+(.+?)\s*$/
+  end
+end
+
+files = Dir.chdir(ROOT) { Dir["**/*.md"] }
+         .reject { _1.start_with?("node_modules", "vendor") }
+
+anchor_cache = {}
+problems = []
+link_count = 0
+
+files.each do |file|
+  full = File.join(ROOT, file)
+  File.read(full).scan(/\[([^\]]*)\]\(([^)]+)\)/) do |label, target|
+    next if target.start_with?("http://", "https://", "mailto:")
+
+    link_count += 1
+    path_part, anchor = target.split("#", 2)
+
+    if path_part.nil? || path_part.empty?
+      resolved = full # âncora no próprio arquivo
+    else
+      resolved = File.expand_path(path_part, File.dirname(full))
+      unless File.exist?(resolved)
+        problems << "#{file}: alvo inexistente — [#{label}](#{target})"
+        next
+      end
+    end
+
+    next unless anchor && resolved.end_with?(".md")
+
+    anchor_cache[resolved] ||= anchors_in(resolved)
+    next if anchor_cache[resolved].include?(anchor.downcase)
+
+    problems << "#{file}: âncora inexistente — [#{label}](#{target})"
+  end
+end
+
+if problems.empty?
+  puts "check_docs: #{link_count} links em #{files.size} arquivos, nenhum quebrado" unless QUIET
+  exit 0
+end
+
+warn "check_docs: #{problems.size} problema(s) em #{link_count} links"
+problems.each { warn "  #{_1}" }
+exit 1
