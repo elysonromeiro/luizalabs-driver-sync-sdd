@@ -2,7 +2,7 @@
 
 RSpec.describe UltraSync::Reconciliation do
   def projection(driver_id, version)
-    UltraSync::Store::Memory::Projection.new(
+    UltraSync::Projection.new(
       driver_id: driver_id, state: {}, source_version: version
     )
   end
@@ -112,7 +112,7 @@ end
 # menos do que parece.
 RSpec.describe "#{UltraSync::Reconciliation} — semântica do agregador", :invariant do
   def projection(id, version)
-    UltraSync::Store::Memory::Projection.new(driver_id: id, state: {}, source_version: version)
+    UltraSync::Projection.new(driver_id: id, state: {}, source_version: version)
   end
 
   it "o agregador é auto-inverso — é XOR, não soma" do

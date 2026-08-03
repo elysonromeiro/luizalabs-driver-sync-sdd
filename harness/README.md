@@ -25,8 +25,8 @@ bundle exec rspec --tag pg
 
 | Modo | Exemplos | Tempo |
 |---|---|---|
-| Sem Docker | 158 | ~2 s |
-| Com Postgres e Kafka | 192 | ~14 s |
+| Sem Docker | 163 | ~2 s |
+| Com Postgres e Kafka | 197 | ~14 s |
 
 ## O que cada camada prova
 
@@ -106,7 +106,7 @@ bin/generate --check    # código gerado em dia com o contrato
 bin/schema_compat       # compatibilidade BACKWARD
 bin/test_inventory --check  # nenhuma invariante removida ou desabilitada
 bin/coupled_change      # mudança crítica exige mudança em spec/
-bin/mutate              # 17 mutações, todas precisam morrer
+bin/mutate              # 19 mutações, todas precisam morrer
 bin/sabotage            # 6 violações deliberadas, todas barradas
 bin/check_docs          # links da documentação
 ```

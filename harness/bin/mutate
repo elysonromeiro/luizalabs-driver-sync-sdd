@@ -73,6 +73,18 @@ MUTATIONS = [
     label: "elegibilidade invertida no status — bloqueado passa a operar"
   },
   {
+    file:  "lib/ultra_sync/eligibility_policy.rb",
+    from:  "Date.parse(valid_until) < @today",
+    to:    "Date.parse(valid_until) <= @today",
+    label: "documento que vence hoje passa a bloquear — entregador fora um dia antes"
+  },
+  {
+    file:  "lib/ultra_sync/eligibility_policy.rb",
+    from:  "reasons << :documents_expired if valid_until && Date.parse(valid_until) < @today",
+    to:    "reasons << :documents_expired if false",
+    label: "validade documental deixa de ser verificada"
+  },
+  {
     file:  "lib/ultra_sync/dispatch_rules.rb",
     from:  "offer.weight_kg <= capacity",
     to:    "offer.weight_kg < capacity",

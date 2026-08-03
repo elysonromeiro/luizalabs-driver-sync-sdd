@@ -92,8 +92,30 @@ SABOTAGES = [
     # Não remove o caso — apenas tira a FRONTEIRA dele. O golden continua
     # passando e continua parecendo cobrir despacho por peso; só deixa de
     # fixar o limite exato, que é justamente o que o operador <= decide.
-    mutate: ['"offer": { "segment": "goods", "weight_kg": 30, "distance_km": 5 }',
-             '"offer": { "segment": "goods", "weight_kg": 20, "distance_km": 5 }'],
+    #
+    # Alvo escolhido para ser insensível à formatação do JSON: uma versão
+    # anterior casava a linha `"offer"` inteira e parou de funcionar quando o
+    # arquivo foi reindentado — a sabotagem passou a reportar "trecho não
+    # encontrado" e o roteiro deixou de cobrir a mutação. Guardrail que quebra
+    # com reformatação é guardrail que some no primeiro `json.dump`.
+    # Âncora ÚNICA: o texto do `why` do caso de fronteira, seguido do peso.
+    # Uma versão anterior casava `"cargo_capacity_kg": 30`, que aparece antes
+    # noutro caso — o `sub` acertava o errado e a fronteira ficava intacta.
+    # Outra casava a linha `"offer"` inteira e quebrou quando o arquivo foi
+    # reindentado.
+    #
+    # Guardrail cujo alvo é frágil não some com alarde: ele passa a reportar
+    # sucesso, que é o pior resultado possível.
+    # Âncora ÚNICA e de uma linha só: nenhum outro caso usa peso 30.
+    #
+    # Duas tentativas anteriores falharam de formas instrutivas. Casar
+    # `"cargo_capacity_kg": 30` acertava um caso ANTERIOR — o `sub` pega a
+    # primeira ocorrência e a fronteira ficava intacta. Casar a linha `"offer"`
+    # inteira quebrou quando o arquivo foi reindentado por um `json.dump`.
+    #
+    # Guardrail com alvo frágil não some com alarde: passa a reportar sucesso,
+    # que é o pior resultado possível.
+    mutate: ['"weight_kg": 30', '"weight_kg": 20'],
     verify: %w[bin/mutate --file dispatch_rules]
   }
 ].freeze

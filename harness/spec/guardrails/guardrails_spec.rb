@@ -239,6 +239,7 @@ RSpec.describe "Guardrails: cobertura acompanha o código" do
   # explícita, não esquecimento — que é a diferença que este spec impõe.
   EXEMPT = {
     "event.rb"                  => "objeto de valor imutável, sem decisão",
+    "projection.rb"             => "Struct sem comportamento; mutá-la não produz mutante observável",
     "backoff.rb"                => "cálculo puro, coberto por unit",
     "generated/driver_state.rb" => "gerado; protegido por bin/generate --check",
     "store/postgres.rb"         => "coberto pelas mutações do adapter em memória, que espelha a semântica"
@@ -318,5 +319,60 @@ RSpec.describe "Guardrails: contratos" do
                       .reject { File.exist?(File.join(CONTRACTS_DIR, _1)) }
 
     expect(missing).to be_empty, "referências quebradas: #{missing.join(', ')}"
+  end
+end
+
+# Achado do segundo ciclo de revisão independente.
+#
+# Reindentar `dispatch_cases.json` com um `json.dump` quebrou a string que a
+# sabotagem 6 procurava. O roteiro passou a reportar "trecho não encontrado" e
+# deixou de cobrir a mutação — **sem nenhum alarde**, porque o script já
+# tratava isso como problema mas ninguém rodava o script a cada mudança.
+#
+# Guardrail cujo alvo é frágil não some fazendo barulho: ele passa a reportar
+# sucesso, que é o pior resultado possível.
+RSpec.describe "Guardrails: alvos de sabotagem e mutação existem" do
+  HARNESS_ROOT = File.expand_path("../..", __dir__)
+
+  def targets_from(script, key)
+    File.read(File.join(HARNESS_ROOT, "bin", script))
+        .scan(/#{key}:\s*"([^"]+)"|#{key}:\s*'([^']+)'/)
+        .flatten.compact
+  end
+
+  it "toda mutação aponta para um trecho que ainda existe" do
+    source = File.read(File.join(HARNESS_ROOT, "bin/mutate"))
+    entries = source.scan(/file:\s*"([^"]+)".*?from:\s*(?:"((?:[^"\\]|\\.)*)"|'((?:[^'\\]|\\.)*)')/m)
+
+    missing = entries.filter_map do |file, dq, sq|
+      needle = (dq || sq).to_s.gsub('\\"', '"').gsub("\\\\", "\\")
+      path = File.join(HARNESS_ROOT, file)
+      next unless File.exist?(path)
+      next if File.read(path).include?(needle)
+
+      "#{file}: #{needle[0, 60].inspect}"
+    end
+
+    expect(missing).to be_empty,
+                       "mutação com alvo inexistente — reporta 'morta' sem ter testado nada:\n  " +
+                       missing.join("\n  ")
+  end
+
+  it "toda sabotagem aponta para um trecho que ainda existe" do
+    source = File.read(File.join(HARNESS_ROOT, "bin/sabotage"))
+    entries = source.scan(/file:\s*"([^"]+)".*?mutate:\s*\[\s*(?:"((?:[^"\\]|\\.)*)"|'((?:[^'\\]|\\.)*)')/m)
+
+    missing = entries.filter_map do |file, dq, sq|
+      needle = (dq || sq).to_s.gsub('\\"', '"')
+      path = File.expand_path(file, HARNESS_ROOT)
+      next unless File.exist?(path)
+      next if File.read(path).include?(needle)
+
+      "#{file}: #{needle[0, 60].inspect}"
+    end
+
+    expect(missing).to be_empty,
+                       "sabotagem com alvo inexistente — o roteiro deixa de cobrir a barreira:\n  " +
+                       missing.join("\n  ")
   end
 end

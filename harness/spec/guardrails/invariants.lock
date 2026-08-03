@@ -126,6 +126,16 @@
   },
   {
     "file": "./spec/golden/golden_spec.rb",
+    "name": "Golden: regras de elegibilidade e despacho elegibilidade documento que vence HOJE ainda é válido",
+    "pending": false
+  },
+  {
+    "file": "./spec/golden/golden_spec.rb",
+    "name": "Golden: regras de elegibilidade e despacho elegibilidade documento que venceu ontem bloqueia",
+    "pending": false
+  },
+  {
+    "file": "./spec/golden/golden_spec.rb",
     "name": "Golden: regras de elegibilidade e despacho elegibilidade documento vencido bloqueia",
     "pending": false
   },
@@ -152,6 +162,11 @@
   {
     "file": "./spec/golden/golden_spec.rb",
     "name": "Golden: regras de elegibilidade e despacho elegibilidade raio zero não é elegível",
+    "pending": false
+  },
+  {
+    "file": "./spec/golden/golden_spec.rb",
+    "name": "Golden: regras de elegibilidade e despacho elegibilidade sem data de validade não bloqueia",
     "pending": false
   },
   {

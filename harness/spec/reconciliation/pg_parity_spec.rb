@@ -24,7 +24,7 @@ RSpec.describe "Reconciliação: paridade entre Ruby e SQL", :pg, :invariant do
       driver_id = Factories.uuid(rng)
       version   = rng.rand(1..1_000)
       store.conditional_upsert(driver_id: driver_id, state: { "v" => version }, source_version: version)
-      UltraSync::Store::Memory::Projection.new(
+      UltraSync::Projection.new(
         driver_id: driver_id, state: {}, source_version: version
       )
     end

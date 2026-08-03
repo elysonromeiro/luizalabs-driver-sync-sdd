@@ -181,7 +181,7 @@ module UltraSync
         ).first
         return nil unless row
 
-        Memory::Projection.new(
+        UltraSync::Projection.new(
           driver_id:      row["driver_id"],
           state:          JSON.parse(row["state"]),
           source_version: row["source_version"].to_i
@@ -190,7 +190,7 @@ module UltraSync
 
       def all
         exec("SELECT driver_id, state, source_version FROM driver_projections").map do |row|
-          Memory::Projection.new(
+          UltraSync::Projection.new(
             driver_id:      row["driver_id"],
             state:          JSON.parse(row["state"]),
             source_version: row["source_version"].to_i

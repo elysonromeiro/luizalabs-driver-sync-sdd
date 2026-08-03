@@ -28,7 +28,7 @@ Em nuvem, a recomendação é consumir Kafka gerenciado (Amazon MSK ou equivalen
 | Ordenação por entregador | Por partição, com `driver_id` como chave | Não oferece | Sim, via `MessageGroupId` | Por fila; frágil sob múltiplos consumidores |
 | Replay histórico | Reset de offset, retenção configurável | Não — mensagem some após o ack | Não | Não |
 | Último estado por chave | Log compaction nativa | Não | Não | Não |
-| Throughput | Muito alto | Alto | **300 msg/s por message group** | Alto |
+| Throughput | Muito alto | Alto | 300 TPS por fila; 3.000 msg/s com lote, mais em alto throughput | Alto |
 | Complexidade operacional | **Alta** | Baixa | Baixa | Média |
 
 ## Justificativa
@@ -41,7 +41,11 @@ Sem compaction, o bootstrap de um consumidor novo teria de varrer 300 mil regist
 
 Seria possível reconstruir os dois recursos sobre SNS+SQS mantendo um snapshot próprio em S3 ou DynamoDB, com um processo de atualização e um de leitura. Mas isso é reimplementar log compaction à mão, com uma superfície de falha nova, para economizar complexidade operacional que um serviço gerenciado já absorve.
 
-O limite de 300 msg/s por *message group* do SQS FIFO não é restritivo aqui — o agrupamento seria por entregador —, mas o serviço continua sem replay e sem compaction.
+Sobre o throughput do SQS FIFO, vale precisar porque o número circula errado: o limite de **300 TPS é por fila e por ação de API**, não por *message group*. Com lote de dez mensagens vira 3.000 msg/s, e o modo de alto throughput sobe bem acima disso.
+
+Ou seja: **throughput não é o que descarta o SQS FIFO aqui.** O que descarta continua sendo a ausência de replay e de compaction.
+
+Registrar isso importa porque rejeitar uma alternativa pelo motivo errado enfraquece a decisão — se o número mudar amanhã, a escolha não muda, e quem lesse a versão anterior deste ADR concluiria o contrário.
 
 ## Consequências
 

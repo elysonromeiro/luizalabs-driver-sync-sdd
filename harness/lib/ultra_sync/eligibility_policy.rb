@@ -41,7 +41,18 @@ module UltraSync
     # pressupõe deslocamento motorizado dentro do raio declarado.
     ALLOWED_VEHICLE_TYPES = %w[scooter motorcycle car van].freeze
 
-    def initialize(today: Date.today)
+    # A data corrente em **UTC**, não no fuso do servidor.
+    #
+    # `Date.today` usa o fuso local. Todos os instantes deste sistema são UTC —
+    # o contrato exige RFC 3339 em UTC —, então comparar validade documental
+    # contra uma data local abre uma janela de até um dia em que a política
+    # discorda de si mesma dependendo de onde o processo roda.
+    #
+    # O sintoma seria um entregador elegível numa réplica e inelegível em
+    # outra, sem nada no evento explicando a diferença — o tipo de divergência
+    # que se investiga por horas. Encontrado em revisão; o default era
+    # `Date.today`.
+    def initialize(today: Time.now.utc.to_date)
       @today = today
     end
 

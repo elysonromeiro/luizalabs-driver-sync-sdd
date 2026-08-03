@@ -4,6 +4,7 @@ require "set"
 require "concurrent"
 
 require_relative "ultra_sync/generated/driver_state"
+require_relative "ultra_sync/projection"
 require_relative "ultra_sync/event"
 require_relative "ultra_sync/schema_validator"
 require_relative "ultra_sync/store/memory"

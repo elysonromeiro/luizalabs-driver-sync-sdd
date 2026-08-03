@@ -13,61 +13,128 @@
     "Cada caso descreve INTENÇÃO no campo `why`, não só entrada e saída. Um caso",
     "golden sem justificativa é indistinguível de um erro que virou expectativa."
   ],
-
   "eligibility": [
     {
       "name": "entregador PJ ativo e regular é elegível",
       "why": "Caminho feliz — todos os critérios da Ultra-rápida satisfeitos.",
       "overrides": {},
-      "expected": { "eligible": true, "reasons": [] }
+      "expected": {
+        "eligible": true,
+        "reasons": []
+      }
     },
     {
       "name": "pessoa física é rejeitada mesmo com tudo em ordem",
       "why": "O critério que o enunciado cita nominalmente: o Portal permite PF, a Ultra-rápida não. Decidido por document_type, que é classificação e não PII.",
-      "overrides": { "document_type": "cpf" },
-      "expected": { "eligible": false, "reasons": ["individual_not_allowed"] }
+      "overrides": {
+        "document_type": "cpf"
+      },
+      "expected": {
+        "eligible": false,
+        "reasons": [
+          "individual_not_allowed"
+        ]
+      }
     },
     {
       "name": "entregador bloqueado não é elegível",
       "why": "Bloqueio de segurança precisa refletir imediatamente na decisão operacional.",
-      "overrides": { "status": "blocked" },
-      "expected": { "eligible": false, "reasons": ["not_active"] }
+      "overrides": {
+        "status": "blocked"
+      },
+      "expected": {
+        "eligible": false,
+        "reasons": [
+          "not_active"
+        ]
+      }
     },
     {
       "name": "aguardando aprovação não é elegível",
       "why": "Cadastro criado não significa apto a operar — a aptidão vem de uma transição de status.",
-      "overrides": { "status": "pending_approval" },
-      "expected": { "eligible": false, "reasons": ["not_active"] }
+      "overrides": {
+        "status": "pending_approval"
+      },
+      "expected": {
+        "eligible": false,
+        "reasons": [
+          "not_active"
+        ]
+      }
     },
     {
       "name": "background check reprovado bloqueia",
       "why": "Critério de compliance independente do status.",
-      "overrides": { "compliance": { "background_check": "rejected", "documents_valid_until": "2028-05-30" } },
-      "expected": { "eligible": false, "reasons": ["background_check_not_approved"] }
+      "overrides": {
+        "compliance": {
+          "background_check": "rejected",
+          "documents_valid_until": "2028-05-30"
+        }
+      },
+      "expected": {
+        "eligible": false,
+        "reasons": [
+          "background_check_not_approved"
+        ]
+      }
     },
     {
       "name": "documento vencido bloqueia",
       "why": "Validade documental é avaliada contra a data corrente, não contra o instante do evento.",
-      "overrides": { "compliance": { "background_check": "approved", "documents_valid_until": "2020-01-01" } },
-      "expected": { "eligible": false, "reasons": ["documents_expired"] }
+      "overrides": {
+        "compliance": {
+          "background_check": "approved",
+          "documents_valid_until": "2020-01-01"
+        }
+      },
+      "expected": {
+        "eligible": false,
+        "reasons": [
+          "documents_expired"
+        ]
+      }
     },
     {
       "name": "bicicleta não é aceita pela Ultra-rápida",
       "why": "O modelo de operação pressupõe deslocamento motorizado dentro do raio declarado.",
-      "overrides": { "vehicle": { "type": "bicycle", "cargo_capacity_kg": 10 } },
-      "expected": { "eligible": false, "reasons": ["vehicle_not_allowed"] }
+      "overrides": {
+        "vehicle": {
+          "type": "bicycle",
+          "cargo_capacity_kg": 10
+        }
+      },
+      "expected": {
+        "eligible": false,
+        "reasons": [
+          "vehicle_not_allowed"
+        ]
+      }
     },
     {
       "name": "sem segmento habilitado não é elegível",
       "why": "Habilitado em nenhum segmento significa que não há oferta que lhe caiba.",
-      "overrides": { "segments": [] },
-      "expected": { "eligible": false, "reasons": ["no_segments"] }
+      "overrides": {
+        "segments": []
+      },
+      "expected": {
+        "eligible": false,
+        "reasons": [
+          "no_segments"
+        ]
+      }
     },
     {
       "name": "raio zero não é elegível",
       "why": "Raio zero não é 'sem limite' — é ausência de área de atuação.",
-      "overrides": { "delivery_radius_km": 0 },
-      "expected": { "eligible": false, "reasons": ["invalid_delivery_radius"] }
+      "overrides": {
+        "delivery_radius_km": 0
+      },
+      "expected": {
+        "eligible": false,
+        "reasons": [
+          "invalid_delivery_radius"
+        ]
+      }
     },
     {
       "name": "múltiplas violações são reportadas todas juntas",
@@ -76,73 +143,218 @@
         "document_type": "cpf",
         "status": "inactive",
         "segments": [],
-        "vehicle": { "type": "on_foot", "cargo_capacity_kg": 5 }
+        "vehicle": {
+          "type": "on_foot",
+          "cargo_capacity_kg": 5
+        }
       },
       "expected": {
         "eligible": false,
-        "reasons": ["individual_not_allowed", "no_segments", "not_active", "vehicle_not_allowed"]
+        "reasons": [
+          "individual_not_allowed",
+          "no_segments",
+          "not_active",
+          "vehicle_not_allowed"
+        ]
+      }
+    },
+    {
+      "name": "documento que vence HOJE ainda é válido",
+      "why": "Fronteira explícita, o mesmo rigor aplicado a peso e distância. A regra é `vencimento < hoje`, não `<=`: um documento válido até hoje vale hoje. Sem congelar isto, trocar o operador tira o entregador de operação um dia antes e ninguém percebe.",
+      "overrides": {
+        "compliance": {
+          "background_check": "approved",
+          "documents_valid_until": "2026-08-03"
+        }
+      },
+      "expected": {
+        "eligible": true,
+        "reasons": []
+      }
+    },
+    {
+      "name": "documento que venceu ontem bloqueia",
+      "why": "O outro lado da mesma fronteira. Um dia de diferença precisa mudar a decisão, senão a verificação de validade não está fazendo nada.",
+      "overrides": {
+        "compliance": {
+          "background_check": "approved",
+          "documents_valid_until": "2026-08-02"
+        }
+      },
+      "expected": {
+        "eligible": false,
+        "reasons": [
+          "documents_expired"
+        ]
+      }
+    },
+    {
+      "name": "sem data de validade não bloqueia",
+      "why": "Nulo significa que não há documento com validade aplicável, não que está vencido. Congelado porque é a interpretação que uma refatoração inverteria com facilidade.",
+      "overrides": {
+        "compliance": {
+          "background_check": "approved",
+          "documents_valid_until": null
+        }
+      },
+      "expected": {
+        "eligible": true,
+        "reasons": []
       }
     }
   ],
-
   "dispatch": [
     {
       "name": "oferta compatível é aceita",
       "why": "Caminho feliz — entregador elegível, segmento servido, peso e distância dentro do limite.",
       "overrides": {},
-      "offer": { "segment": "goods", "weight_kg": 12, "distance_km": 8 },
-      "expected": { "accepted": true, "reasons": [] }
+      "offer": {
+        "segment": "goods",
+        "weight_kg": 12,
+        "distance_km": 8
+      },
+      "expected": {
+        "accepted": true,
+        "reasons": []
+      }
     },
     {
       "name": "entregador inelegível não recebe oferta, ainda que ela caiba",
       "why": "Elegibilidade é pré-requisito, não uma regra entre outras. A oferta encaixa perfeitamente e mesmo assim é recusada.",
-      "overrides": { "status": "blocked" },
-      "offer": { "segment": "goods", "weight_kg": 5, "distance_km": 2 },
-      "expected": { "accepted": false, "reasons": ["driver_not_eligible"] }
+      "overrides": {
+        "status": "blocked"
+      },
+      "offer": {
+        "segment": "goods",
+        "weight_kg": 5,
+        "distance_km": 2
+      },
+      "expected": {
+        "accepted": false,
+        "reasons": [
+          "driver_not_eligible"
+        ]
+      }
     },
     {
       "name": "segmento não habilitado é recusado",
       "why": "Entregador de goods não recebe corrida de food.",
-      "overrides": { "segments": ["goods"] },
-      "offer": { "segment": "food", "weight_kg": 3, "distance_km": 4 },
-      "expected": { "accepted": false, "reasons": ["segment_not_served"] }
+      "overrides": {
+        "segments": [
+          "goods"
+        ]
+      },
+      "offer": {
+        "segment": "food",
+        "weight_kg": 3,
+        "distance_km": 4
+      },
+      "expected": {
+        "accepted": false,
+        "reasons": [
+          "segment_not_served"
+        ]
+      }
     },
     {
       "name": "peso acima da capacidade é recusado",
       "why": "Capacidade de carga vem do veículo declarado no cadastro.",
-      "overrides": { "vehicle": { "type": "motorcycle", "cargo_capacity_kg": 30 } },
-      "offer": { "segment": "goods", "weight_kg": 45, "distance_km": 5 },
-      "expected": { "accepted": false, "reasons": ["exceeds_cargo_capacity"] }
+      "overrides": {
+        "vehicle": {
+          "type": "motorcycle",
+          "cargo_capacity_kg": 30
+        }
+      },
+      "offer": {
+        "segment": "goods",
+        "weight_kg": 45,
+        "distance_km": 5
+      },
+      "expected": {
+        "accepted": false,
+        "reasons": [
+          "exceeds_cargo_capacity"
+        ]
+      }
     },
     {
       "name": "peso exatamente igual à capacidade é aceito",
       "why": "Caso de fronteira explícito. A regra é <=, não <, e congelar isso impede que uma refatoração troque o operador sem ninguém notar.",
-      "overrides": { "vehicle": { "type": "motorcycle", "cargo_capacity_kg": 30 } },
-      "offer": { "segment": "goods", "weight_kg": 30, "distance_km": 5 },
-      "expected": { "accepted": true, "reasons": [] }
+      "overrides": {
+        "vehicle": {
+          "type": "motorcycle",
+          "cargo_capacity_kg": 30
+        }
+      },
+      "offer": {
+        "segment": "goods",
+        "weight_kg": 30,
+        "distance_km": 5
+      },
+      "expected": {
+        "accepted": true,
+        "reasons": []
+      }
     },
     {
       "name": "distância exatamente igual ao raio é aceita",
       "why": "Mesmo raciocínio de fronteira, no outro eixo.",
-      "overrides": { "delivery_radius_km": 12.5 },
-      "offer": { "segment": "goods", "weight_kg": 5, "distance_km": 12.5 },
-      "expected": { "accepted": true, "reasons": [] }
+      "overrides": {
+        "delivery_radius_km": 12.5
+      },
+      "offer": {
+        "segment": "goods",
+        "weight_kg": 5,
+        "distance_km": 12.5
+      },
+      "expected": {
+        "accepted": true,
+        "reasons": []
+      }
     },
     {
       "name": "distância acima do raio é recusada",
       "why": "Raio de entrega é declarado pelo entregador e respeitado pelo despacho.",
-      "overrides": { "delivery_radius_km": 10 },
-      "offer": { "segment": "goods", "weight_kg": 5, "distance_km": 25 },
-      "expected": { "accepted": false, "reasons": ["outside_delivery_radius"] }
+      "overrides": {
+        "delivery_radius_km": 10
+      },
+      "offer": {
+        "segment": "goods",
+        "weight_kg": 5,
+        "distance_km": 25
+      },
+      "expected": {
+        "accepted": false,
+        "reasons": [
+          "outside_delivery_radius"
+        ]
+      }
     },
     {
       "name": "recusas acumulam quando há mais de um impedimento",
       "why": "Assim como na elegibilidade, não há curto-circuito.",
-      "overrides": { "segments": ["food"], "delivery_radius_km": 5, "vehicle": { "type": "scooter", "cargo_capacity_kg": 10 } },
-      "offer": { "segment": "goods", "weight_kg": 40, "distance_km": 30 },
+      "overrides": {
+        "segments": [
+          "food"
+        ],
+        "delivery_radius_km": 5,
+        "vehicle": {
+          "type": "scooter",
+          "cargo_capacity_kg": 10
+        }
+      },
+      "offer": {
+        "segment": "goods",
+        "weight_kg": 40,
+        "distance_km": 30
+      },
       "expected": {
         "accepted": false,
-        "reasons": ["exceeds_cargo_capacity", "outside_delivery_radius", "segment_not_served"]
+        "reasons": [
+          "exceeds_cargo_capacity",
+          "outside_delivery_radius",
+          "segment_not_served"
+        ]
       }
     }
   ]
