@@ -52,6 +52,20 @@ module UltraSync
         end
       end
 
+      # Espelha o incremento atômico do Postgres. Sob o monitor, a operação
+      # inteira é indivisível — como é sob o lock de linha do UPDATE.
+      def advance_version!(driver_id:, state:)
+        synchronize do
+          @query_count += 1
+          current = @projections[driver_id]
+          next_version = (current&.source_version || 0) + 1
+          @projections[driver_id] = Projection.new(
+            driver_id: driver_id, state: state, source_version: next_version
+          )
+          next_version
+        end
+      end
+
       def claimed?(source, event_id)
         synchronize { @claimed.key?([source, event_id]) }
       end

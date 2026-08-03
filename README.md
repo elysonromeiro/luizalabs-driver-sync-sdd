@@ -41,7 +41,7 @@ flowchart LR
 
 ### O que distingue esta entrega
 
-**As invariantes são executáveis.** Idempotência, comutatividade, monotonicidade e convergência não são afirmadas — são propriedades verificadas sobre qualquer sequência gerada. São **76 invariantes** na suíte.
+**As invariantes são executáveis.** Idempotência, comutatividade, monotonicidade e convergência não são afirmadas — são propriedades verificadas sobre qualquer sequência gerada. São **80 invariantes** na suíte.
 
 **Os guardrails foram sabotados de propósito.** `bin/sabotage` executa seis violações deliberadas e mostra a saída real de cada barreira. Qualquer avaliador clona e confere.
 
@@ -62,18 +62,18 @@ Com Docker, acrescenta concorrência real e mensageria:
 
 ```bash
 docker compose up -d             # postgres:16 + kafka
-cd harness && bundle exec rspec  # 168 exemplos
+cd harness && bundle exec rspec  # 172 exemplos
 bin/sabotage                     # 6 violações deliberadas
 bin/mutate                       # 12 mutações
 ```
 
 | Verificação | Resultado |
 |---|---|
-| Suíte completa | **168 exemplos, 0 falhas** |
-| Invariantes | **76** |
+| Suíte completa | **172 exemplos, 0 falhas** |
+| Invariantes | **80** |
 | Mutações mortas | **12 / 12** |
 | Sabotagens barradas | **6 / 6** |
-| Links da documentação | **179, nenhum quebrado** |
+| Links da documentação | **180, nenhum quebrado** |
 
 ---
 
@@ -179,7 +179,7 @@ Cada uma com as alternativas descartadas e o motivo.
 | **Pilar 2** — `driver.updated` | [schema](contracts/schemas/driver.updated.schema.json) | exemplo validado |
 | **Pilar 2** — `driver.status_changed` | [schema](contracts/schemas/driver.status_changed.schema.json) | exemplo validado |
 | **Pilar 3** — Harness no CI | [05-ai-harness](docs/05-ai-harness.md) | seis jobs em duas velocidades |
-| **Pilar 3** — Testes de propriedade | [`spec/properties/`](harness/spec/properties) | 76 invariantes |
+| **Pilar 3** — Testes de propriedade | [`spec/properties/`](harness/spec/properties) | 80 invariantes |
 | **Pilar 3** — Impedir alteração de regra de despacho | [golden](harness/spec/golden/dispatch_cases.json) + [CODEOWNERS](.github/CODEOWNERS) | 18 casos congelados |
 | **Pilar 3** — Impedir corrupção de idempotência | propriedades + mutação | sabotagem 2 |
 | **Pilar 3** — Impedir race condition | [02-concorrencia](docs/02-concorrencia.md) | 20 entrelaçamentos enumerados |

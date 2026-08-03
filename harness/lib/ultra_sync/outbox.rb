@@ -40,8 +40,12 @@ module UltraSync
     }.freeze
 
     Entry = Struct.new(:id, :event_id, :driver_id, :sequence, :kind, :channel,
-                       :payload, :published_at, keyword_init: true) do
+                       :snapshot_channel, :payload, :published_at, keyword_init: true) do
       def published? = !published_at.nil?
+
+      # Todo evento vai para DOIS tópicos: o canal de ciclo de vida e o
+      # snapshot compactado (ADR-009).
+      def channels = [channel, snapshot_channel]
     end
 
     def initialize(store:)
@@ -61,13 +65,12 @@ module UltraSync
     # @return [Entry] a linha do outbox, ainda não publicada
     def record!(driver_id:, state:, kind:)
       @store.transaction do
-        current  = @store.fetch(driver_id)
-        sequence = (current&.source_version || 0) + 1
-
-        rows = @store.conditional_upsert(
-          driver_id: driver_id, state: state, source_version: sequence
-        )
-        raise "estado não avançou — sequence gerado fora da transação?" if rows.zero?
+        # Incremento ATÔMICO. A versão anterior lia, calculava em Ruby e
+        # escrevia — o mesmo read-modify-write que docs/02-concorrencia.md
+        # condena. Passava nos testes porque o adapter em memória serializa
+        # sob monitor; contra Postgres real, 7 de 8 escritores concorrentes
+        # falhavam.
+        sequence = @store.advance_version!(driver_id: driver_id, state: state)
 
         enqueue(driver_id: driver_id, sequence: sequence, kind: kind, state: state)
       end
@@ -104,6 +107,10 @@ module UltraSync
     def enqueue(driver_id:, sequence:, kind:, state:)
       @mutex.synchronize do
         @next_id += 1
+        # ADR-009: o relay publica no canal de ciclo de vida E no snapshot
+        # compactado, com a mesma chave. Sem a segunda publicação o tópico de
+        # snapshot fica vazio e o bootstrap de consumidor novo — que é a
+        # premissa do fan-out — não funciona.
         entry = Entry.new(
           id:        @next_id,
           event_id:  SecureRandom.uuid,
@@ -111,6 +118,7 @@ module UltraSync
           sequence:  sequence,
           kind:      kind,
           channel:   CHANNEL_BY_KIND.fetch(kind),
+          snapshot_channel: SNAPSHOT,
           payload:   state,
           published_at: nil
         )

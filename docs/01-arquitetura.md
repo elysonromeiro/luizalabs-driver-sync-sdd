@@ -166,6 +166,8 @@ sequenceDiagram
     C->>K: commit offset
 ```
 
+> **A ordem por partição depende da configuração do produtor.** Com retentativa e mais de uma requisição em voo, uma mensagem reenviada pode ser gravada depois de outra que saiu depois dela — o Kafka garante a ordem em que **recebeu**, não a ordem em que foi enviada. `enable.idempotence=true` fecha isso, e está declarado em [`asyncapi.yaml`](../contracts/asyncapi.yaml) como configuração obrigatória, não como recomendação. Sem ela a corretude sobrevive, porque a ordenação por versão protege — mas o volume de eventos descartados como stale cresce sem causa aparente.
+
 O bloco destacado é o coração da decisão [ADR-002](adr/002-outbox-vs-cdc.md). Estado e evento nascem juntos ou não nascem. Não existe caminho em que o Portal registre uma aprovação que o log desconheça.
 
 Note também a ordem no fim: o offset é commitado **depois** do processamento. É o que torna a entrega at-least-once — e é por isso que a deduplicação existe.

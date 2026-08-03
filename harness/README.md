@@ -26,7 +26,7 @@ bundle exec rspec --tag pg
 | Modo | Exemplos | Tempo |
 |---|---|---|
 | Sem Docker | 138 | ~2 s |
-| Com Postgres e Kafka | 168 | ~14 s |
+| Com Postgres e Kafka | 172 | ~14 s |
 
 ## O que cada camada prova
 
@@ -112,6 +112,23 @@ bin/check_docs          # links da documentação
 ```
 
 `bin/sabotage` é o mais direto de conferir: executa seis violações reais, mostra a saída de cada barreira e reverte tudo ao fim, inclusive sob Ctrl-C.
+
+## Fronteira entre desenho e implementação
+
+O harness cobre a **lógica** de sincronização. O transporte real fica fora dele, e vale dizer onde está a linha em vez de deixar supor.
+
+| Componente | No harness | No contrato / desenho |
+|---|---|---|
+| Aplicação de evento, dedupe, versão | **executável** | — |
+| Geração de versão no produtor (outbox) | **executável**, com spec `:pg` de concorrência | — |
+| Backpressure, pause/resume | **executável** contra Kafka real | — |
+| Reconciliação por checksum | **executável**, com paridade SQL × Ruby | — |
+| Publicação no canal e no snapshot | roteamento decidido e testado | a publicação em si é do relay |
+| Escrita na DLQ | dead letters montados e validados | a publicação em `drivers.dlq.v1` é do relay |
+| Assinatura JWS do envelope | — | desenho; exige KMS |
+| Tokenização de PII | — | desenho; exige cofre |
+
+As três últimas linhas são desenho porque dependem de infraestrutura que o harness não tem. O que **é** verificável nelas está verificado: o dead letter é montado no formato do contrato e validado contra o schema, e o roteamento de canal tem spec.
 
 ## Duas divergências do enunciado, declaradas
 

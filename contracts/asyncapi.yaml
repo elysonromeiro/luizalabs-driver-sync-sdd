@@ -58,6 +58,29 @@ servers:
         schemaRegistryUrl: https://schema-registry.logistica.magalu.internal
         schemaRegistryVendor: confluent
 
+    # Configuração OBRIGATÓRIA do produtor.
+    #
+    # A garantia de ordem por partição, sobre a qual o desenho se apoia, é
+    # anulada silenciosamente por retentativa do produtor: com
+    # `max.in.flight.requests.per.connection > 1` e `retries > 0`, uma
+    # mensagem reenviada pode ser gravada DEPOIS de outra que saiu depois
+    # dela. Nada no broker impede — a ordem que o Kafka garante é a ordem em
+    # que ele recebeu.
+    #
+    # `enable.idempotence=true` resolve: o produtor numera as mensagens por
+    # sessão e o broker rejeita fora de sequência. Ele também implica
+    # acks=all, o que é o que se quer aqui.
+    #
+    # Sem isso, a ordenação por versão do consumidor continua protegendo a
+    # corretude — mas o volume de eventos descartados como stale cresce sem
+    # explicação aparente, que é o tipo de sintoma caro de diagnosticar.
+    x-producer-config:
+      enable.idempotence: true
+      acks: all
+      max.in.flight.requests.per.connection: 5
+      retries: 2147483647
+      compression.type: zstd
+
 channels:
   driverStatus:
     address: drivers.status.v1

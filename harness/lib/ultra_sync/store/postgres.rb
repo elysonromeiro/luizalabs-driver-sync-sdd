@@ -78,6 +78,30 @@ module UltraSync
         raise
       end
 
+      # Avança a versão do entregador ATOMICAMENTE e devolve a nova.
+      #
+      # O incremento acontece DENTRO da instrução, sob o lock de linha do
+      # UPDATE. Não existe leitura prévia, logo não existe janela entre ler e
+      # escrever — é a mesma regra que o consumidor segue, aplicada ao
+      # produtor.
+      #
+      # A versão anterior deste código fazia fetch, calculava em Ruby e
+      # escrevia. Passava nos testes porque o adapter em memória serializa
+      # tudo sob um monitor; contra Postgres real, 7 de 8 escritores
+      # concorrentes falhavam. Era o anti-padrão que docs/02-concorrencia.md
+      # condena, dentro do próprio repositório.
+      def advance_version!(driver_id:, state:)
+        exec_params(<<~SQL, [driver_id, JSON.generate(state)]).first["source_version"].to_i
+          INSERT INTO driver_projections (driver_id, state, source_version, updated_at)
+          VALUES ($1, $2::jsonb, 1, now())
+          ON CONFLICT (driver_id) DO UPDATE
+             SET state          = EXCLUDED.state,
+                 source_version = driver_projections.source_version + 1,
+                 updated_at     = now()
+          RETURNING source_version
+        SQL
+      end
+
       def claim(source, event_id)
         res = exec_params(<<~SQL, [source, event_id])
           INSERT INTO processed_events (source, event_id)
