@@ -1,0 +1,105 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Gera constantes de domínio a partir do JSON Schema do contrato.
+#
+# Este é o mecanismo que torna "a spec é a fonte da verdade" verificável em vez
+# de declaratório. Os enums e limites que a política de elegibilidade usa não
+# são digitados em Ruby — são derivados de contracts/schemas/. Quem quiser
+# mudar o conjunto de status de um entregador precisa mudar o contrato.
+#
+#   bin/generate           reescreve o arquivo gerado
+#   bin/generate --check   falha se o arquivo em disco divergir do contrato
+#
+# O modo --check roda no CI e no hook de fim de sessão. Ele é o que impede um
+# agente de IA (ou uma pessoa apressada) de editar o código gerado direto.
+
+require "json"
+
+ROOT   = File.expand_path("../..", __dir__)
+SCHEMA = File.join(ROOT, "contracts/schemas/driver-state.schema.json")
+TARGET = File.expand_path("../lib/ultra_sync/generated/driver_state.rb", __dir__)
+
+CHECK = ARGV.include?("--check")
+
+schema = JSON.parse(File.read(SCHEMA))
+defs   = schema.fetch("$defs")
+
+def enum_at(node, *path)
+  path.reduce(node) { |acc, key| acc.fetch(key) }.fetch("enum")
+end
+
+statuses    = defs.dig("DriverStatus", "enum")
+vehicles    = enum_at(defs, "Vehicle", "properties", "type")
+checks      = enum_at(defs, "Compliance", "properties", "background_check")
+documents   = schema.dig("properties", "document_type", "enum")
+segments    = schema.dig("properties", "segments", "items", "enum")
+max_radius  = schema.dig("properties", "delivery_radius_km", "maximum")
+max_cargo   = defs.dig("Vehicle", "properties", "cargo_capacity_kg", "maximum")
+required    = schema.fetch("required")
+
+def literal(values)
+  "%w[#{values.join(' ')}].freeze"
+end
+
+content = <<~RUBY
+  # frozen_string_literal: true
+  #
+  # ARQUIVO GERADO — NÃO EDITE À MÃO.
+  #
+  # Origem: contracts/schemas/driver-state.schema.json
+  # Regenerar: harness/bin/generate
+  #
+  # Editar este arquivo diretamente faz `bin/generate --check` falhar no CI.
+  # Para mudar qualquer valor abaixo, mude o contrato e regenere.
+
+  module UltraSync
+    module Generated
+      module DriverState
+        STATUSES          = #{literal(statuses)}
+        VEHICLE_TYPES     = #{literal(vehicles)}
+        DOCUMENT_TYPES    = #{literal(documents)}
+        SEGMENTS          = #{literal(segments)}
+        BACKGROUND_CHECKS = #{literal(checks)}
+
+        REQUIRED_FIELDS   = #{literal(required)}
+
+        MAX_DELIVERY_RADIUS_KM = #{max_radius}
+        MAX_CARGO_CAPACITY_KG  = #{max_cargo}
+      end
+    end
+  end
+RUBY
+
+if CHECK
+  current = File.exist?(TARGET) ? File.read(TARGET) : nil
+  if current == content
+    puts "generate --check: código gerado está em dia com o contrato"
+    exit 0
+  end
+
+  warn "generate --check: DIVERGÊNCIA entre o contrato e o código gerado"
+  warn ""
+  if current.nil?
+    warn "  #{TARGET.sub("#{ROOT}/", '')} não existe."
+  else
+    expected = content.lines
+    actual   = current.lines
+    (0...[expected.size, actual.size].max).each do |i|
+      next if expected[i] == actual[i]
+
+      warn "  linha #{i + 1}"
+      warn "    contrato: #{expected[i]&.chomp.inspect}"
+      warn "    em disco: #{actual[i]&.chomp.inspect}"
+    end
+  end
+  warn ""
+  warn "  Rode `bin/generate`. Se a mudança foi feita no código gerado,"
+  warn "  ela precisa ser feita no contrato — a spec é a fonte da verdade."
+  exit 1
+end
+
+require "fileutils"
+FileUtils.mkdir_p(File.dirname(TARGET))
+File.write(TARGET, content)
+puts "gerado: #{TARGET.sub("#{ROOT}/", '')}"

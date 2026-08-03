@@ -53,9 +53,27 @@ Sincronizar o ciclo de vida do entregador entre os dois sistemas, respeitando tr
 | 1 — Resiliência e tolerância a falhas | [`docs/03-resiliencia.md`](docs/03-resiliencia.md) | **pronto** |
 | 1 — Segurança e dados sensíveis | [`docs/04-seguranca.md`](docs/04-seguranca.md) | **pronto** |
 | 2 — Contratos de eventos | [`contracts/`](contracts/README.md) | **pronto** |
+| 3 — Harness executável | [`harness/`](harness/README.md) | **pronto** |
 | 3 — AI harness e guardrails | `docs/05-ai-harness.md` | pendente |
 | 3 — Repositório AI-native | `docs/07-repo-ai-native.md` | pendente |
 | Especialista | `docs/06-especialista.md` | pendente |
+
+### Rodando o harness
+
+As invariantes deste documento são executáveis. Sem Docker:
+
+```bash
+cd harness && bundle install && bundle exec rspec
+# 63 examples, 0 failures
+```
+
+Com Postgres real, que acrescenta lost update, isolamento, deadlock e contagem de queries:
+
+```bash
+docker compose up -d
+cd harness && bundle exec rspec
+# 77 examples, 0 failures
+```
 
 ### Decisões arquiteturais
 

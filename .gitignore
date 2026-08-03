@@ -28,3 +28,7 @@ Gemfile.lock.bak
 *.swp
 *~
 .DS_Store
+
+# Harness
+/harness/vendor/
+/harness/.bundle/

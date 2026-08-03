@@ -34,8 +34,14 @@ def anchors_in(path)
   end
 end
 
-files = Dir.chdir(ROOT) { Dir["**/*.md"] }
-         .reject { _1.start_with?("node_modules", "vendor") }
+# Exclui dependências instaladas. A checagem vale para a documentação DESTE
+# repositório; varrer o README de cada gem produziria centenas de falsos
+# positivos (links rdoc-ref, âncoras de wiki) e o relatório viraria ruído que
+# ninguém lê — que é o mesmo que não ter checagem.
+IGNORED = %w[node_modules vendor .bundle tmp coverage .git].freeze
+
+files = Dir.chdir(ROOT) { Dir.glob("**/*.md") }
+         .reject { |path| path.split("/").any? { IGNORED.include?(_1) } }
 
 anchor_cache = {}
 problems = []
@@ -44,7 +50,9 @@ link_count = 0
 files.each do |file|
   full = File.join(ROOT, file)
   File.read(full).scan(/\[([^\]]*)\]\(([^)]+)\)/) do |label, target|
-    next if target.start_with?("http://", "https://", "mailto:")
+    # Qualquer esquema URI é externo a este repositório e não é verificável
+    # aqui (http, mailto, rdoc-ref, …).
+    next if target.match?(%r{\A[a-z][a-z0-9+.-]*:}i)
 
     link_count += 1
     path_part, anchor = target.split("#", 2)
