@@ -6,6 +6,8 @@ Isto não é a implementação de produção. É o conjunto mínimo necessário 
 
 ## Como rodar
 
+**Pré-requisitos:** Ruby 3.1 ou superior. As gems são instaladas dentro do repositório, em `vendor/bundle` — não é preciso permissão de root nem gerenciador de versão.
+
 ```bash
 cd harness
 bundle install
