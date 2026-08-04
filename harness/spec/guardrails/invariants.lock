@@ -306,6 +306,16 @@
   },
   {
     "file": "./spec/reconciliation/pg_parity_spec.rb",
+    "name": "Reconciliação: os DOIS lados agregam no banco `all` tem limite — percorrer tudo é keyset, não SELECT sem teto",
+    "pending": false
+  },
+  {
+    "file": "./spec/reconciliation/pg_parity_spec.rb",
+    "name": "Reconciliação: os DOIS lados agregam no banco o consumidor calcula checksums sem carregar a projeção em memória",
+    "pending": false
+  },
+  {
+    "file": "./spec/reconciliation/pg_parity_spec.rb",
     "name": "Reconciliação: paridade entre Ruby e SQL a expressão SQL produz o mesmo checksum que o cálculo em Ruby",
     "pending": false
   },
