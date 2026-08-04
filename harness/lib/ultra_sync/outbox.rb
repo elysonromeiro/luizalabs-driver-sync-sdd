@@ -26,18 +26,38 @@ module UltraSync
   class Outbox
     SOURCE = "/magalu/logistica/portal-entregadores"
 
-    # Classificação de canal por criticidade (ADR-005). Não é sobre volume:
-    # a pergunta é se o evento, preso duas horas atrás de um backlog,
-    # prejudica alguém de forma irreversível naquele dia.
-    FAST_LANE = "drivers.status.v1"
-    BULK_LANE = "drivers.profile.v1"
-    SNAPSHOT  = "drivers.snapshot.v1"
+    SPEC_PATH = File.expand_path("../../../contracts/behavior/lifecycle.yaml", __dir__)
 
-    CHANNEL_BY_KIND = {
-      created:        BULK_LANE,
-      updated:        BULK_LANE,
-      status_changed: FAST_LANE
-    }.freeze
+    class << self
+      def spec = @spec ||= RuleEngine.load(SPEC_PATH)
+
+      # Roteamento de canal derivado da SPEC, não redigitado aqui.
+      #
+      # A classificação é decisão de negócio (ADR-005): a pergunta não é
+      # volume, é se o evento preso duas horas atrás de um backlog prejudica
+      # alguém de forma irreversível naquele dia. Decisão de negócio pertence
+      # à spec; o Ruby só a consulta.
+      def channels = @channels ||= spec.fetch("channels")
+
+      def topic_for(kind)
+        event = "driver.#{kind}"
+        lane = channels.find { |name, c| name != "snapshot" && c.fetch("events").include?(event) }
+        raise KeyError, "evento sem canal declarado em lifecycle.yaml: #{event}" unless lane
+
+        lane.last.fetch("topic")
+      end
+
+      def snapshot_topic = channels.fetch("snapshot").fetch("topic")
+
+      # Transições válidas, para o consumidor registrar anomalia quando a
+      # fonte afirmar algo que a máquina de estados não prevê.
+      def transitions
+        @transitions ||= spec.fetch("transitions")
+                             .to_h { |t| [[t.fetch("from"), t.fetch("to")], t.fetch("reasons")] }
+      end
+
+      def transition_allowed?(from, to) = transitions.key?([from, to])
+    end
 
     Entry = Struct.new(:id, :event_id, :driver_id, :sequence, :kind, :channel,
                        :snapshot_channel, :payload, :published_at, keyword_init: true) do
@@ -117,8 +137,8 @@ module UltraSync
           driver_id: driver_id,
           sequence:  sequence,
           kind:      kind,
-          channel:   CHANNEL_BY_KIND.fetch(kind),
-          snapshot_channel: SNAPSHOT,
+          channel:   self.class.topic_for(kind),
+          snapshot_channel: self.class.snapshot_topic,
           payload:   state,
           published_at: nil
         )

@@ -126,6 +126,16 @@
   },
   {
     "file": "./spec/golden/golden_spec.rb",
+    "name": "Golden: regras de elegibilidade e despacho elegibilidade capacidade abaixo do mínimo operacional bloqueia",
+    "pending": false
+  },
+  {
+    "file": "./spec/golden/golden_spec.rb",
+    "name": "Golden: regras de elegibilidade e despacho elegibilidade capacidade exatamente no mínimo é aceita",
+    "pending": false
+  },
+  {
+    "file": "./spec/golden/golden_spec.rb",
     "name": "Golden: regras de elegibilidade e despacho elegibilidade documento que vence HOJE ainda é válido",
     "pending": false
   },
@@ -411,12 +421,17 @@
   },
   {
     "file": "./spec/unit/outbox_spec.rb",
+    "name": "UltraSync::Outbox classificação de canal (ADR-005) a máquina de estados declara quais transições são válidas",
+    "pending": false
+  },
+  {
+    "file": "./spec/unit/outbox_spec.rb",
     "name": "UltraSync::Outbox classificação de canal (ADR-005) criação e alteração de perfil vão para a bulk-lane",
     "pending": false
   },
   {
     "file": "./spec/unit/outbox_spec.rb",
-    "name": "UltraSync::Outbox classificação de canal (ADR-005) todo tipo do ciclo de vida tem canal declarado",
+    "name": "UltraSync::Outbox classificação de canal (ADR-005) todo tipo do ciclo de vida tem canal declarado na spec",
     "pending": false
   },
   {

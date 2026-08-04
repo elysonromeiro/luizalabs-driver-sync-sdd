@@ -1,0 +1,176 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Demonstra que a ESPECIFICAÇÃO manda, não o código.
+#
+# POR QUE ISTO EXISTE
+#
+# Ter arquivos de spec não prova nada. A pergunta cética — e correta — é:
+#
+#   "Você tem uns YAML. E daí? Todo mundo tem arquivo de configuração.
+#    O que faz isso ser spec-driven em vez de configuração?"
+#
+# A diferença não é o formato. É quem manda quando os dois discordam:
+#
+#   configuração   o código está certo, o arquivo é entrada
+#   spec-driven    a spec está certa, o código é que tem o bug
+#
+# O teste que decide:
+#
+#   1. Mude a spec sem tocar em código. O comportamento mudou?
+#   2. Mude o código sem tocar na spec. O build quebrou?
+#
+# Este script responde a primeira, e o faz de forma verificável: além de
+# mostrar o teste falhando, ele CONFIRMA que nenhum arquivo de `lib/` foi
+# alterado durante a demonstração. Sem essa confirmação, um cético
+# razoavelmente suspeitaria que algo em Ruby mudou junto.
+#
+# A segunda pergunta é respondida por `bin/generate --check` e por
+# `bin/mutate`, que aplica mutações dentro dos próprios YAML.
+#
+#   bin/spec_drives            roda todas as demonstrações
+#   bin/spec_drives --only N   roda apenas a de número N
+
+require "open3"
+require "digest"
+
+HARNESS = File.expand_path("..", __dir__)
+ROOT    = File.expand_path("..", HARNESS)
+
+# Cada demonstração altera SOMENTE um arquivo de spec e mostra o efeito.
+DEMOS = [
+  {
+    title:  "Aceitar pessoa física",
+    spec:   "contracts/behavior/eligibility.yaml",
+    change: ["    when: { not_equals: cnpj }", "    when: { equals: cnpj }"],
+    means:  "Inverte o critério que o enunciado cita nominalmente.",
+    verify: %w[bundle exec rspec spec/golden --format progress --no-color],
+    expect: "o caso golden 'pessoa física é rejeitada' passa a falhar"
+  },
+  {
+    title:  "Parar de verificar validade documental",
+    spec:   "contracts/behavior/eligibility.yaml",
+    change: ["    when: { date_before: today }", "    when: { absent: true }"],
+    means:  "Troca a regra de vencimento por presença do campo.",
+    verify: %w[bundle exec rspec spec/golden --format progress --no-color],
+    expect: "os casos golden de fronteira de data passam a falhar"
+  },
+  {
+    title:  "Trocar a regra de capacidade por distância",
+    spec:   "contracts/behavior/dispatch.yaml",
+    change: ["    offer_field: weight_kg", "    offer_field: distance_km"],
+    means:  "A regra de peso passa a olhar o campo errado da oferta.",
+    verify: %w[bundle exec rspec spec/golden --format progress --no-color],
+    expect: "o caso golden 'peso acima da capacidade' passa a falhar"
+  },
+  {
+    title:  "Mudar o canal de uma transição de status",
+    spec:   "contracts/behavior/lifecycle.yaml",
+    change: ["    events: [driver.status_changed]", "    events: []"],
+    means:  "Retira o evento de status do fast-lane.",
+    verify: %w[bundle exec rspec spec/unit/outbox_spec.rb --format progress --no-color],
+    expect: "o roteamento de canal do outbox passa a falhar"
+  },
+  {
+    title:  "ACRESCENTAR um critério novo",
+    spec:   "contracts/behavior/eligibility.yaml",
+    change: [
+      "rules:\n",
+      "rules:\n  - id: uf_not_supported\n    field: operating_area.uf\n" \
+      "    when: { not_in: [RJ] }\n    why: Demonstração — apenas o Rio é atendido.\n"
+    ],
+    means:  "Regra que NÃO existe em lugar nenhum do Ruby.",
+    verify: %w[bundle exec rspec spec/golden --format progress --no-color],
+    expect: "entregadores de SP passam a ser inelegíveis, sem uma linha de Ruby"
+  }
+].freeze
+
+def lib_fingerprint
+  Dir[File.join(HARNESS, "lib/**/*.rb")].sort.map { Digest::SHA256.file(_1).hexdigest }.join
+end
+
+def run(command) = Open3.capture3(*command, chdir: HARNESS)
+
+only = (ARGV.index("--only") && ARGV[ARGV.index("--only") + 1].to_i)
+demos = only ? [DEMOS[only - 1]].compact : DEMOS
+
+puts "=" * 78
+puts "A ESPECIFICAÇÃO MANDA — #{demos.size} demonstração(ões)"
+puts "=" * 78
+puts
+puts "Cada uma altera SOMENTE um arquivo de spec e mostra o comportamento mudando."
+puts "Nenhuma linha de Ruby é tocada, e isso é verificado por hash ao final."
+
+baseline_lib = lib_fingerprint
+backups = {}
+restore = lambda { backups.each { |path, body| File.write(path, body) }; backups.clear }
+at_exit { restore.call }
+trap("INT") { restore.call; exit 130 }
+
+inert = []
+
+demos.each_with_index do |demo, index|
+  number = only || index + 1
+  path = File.join(ROOT, demo[:spec])
+  original = File.read(path)
+  from, to = demo[:change]
+
+  puts
+  puts "-" * 78
+  puts "#{number}. #{demo[:title]}"
+  puts "   spec:     #{demo[:spec]}"
+  puts "   mudança:  #{demo[:means]}"
+  puts "   esperado: #{demo[:expect]}"
+  puts "-" * 78
+
+  unless original.include?(from)
+    puts "   ERRO: trecho não encontrado — a demonstração precisa ser atualizada"
+    inert << demo[:title]
+    next
+  end
+
+  backups[path] = original
+  File.write(path, original.sub(from, to))
+
+  stdout, stderr, status = run(demo[:verify])
+  output = "#{stdout}#{stderr}"
+
+  File.write(path, original)
+  backups.delete(path)
+
+  summary = output.lines.grep(/examples?,/).first.to_s.strip
+  puts "   #{summary}"
+  output.lines.grep(%r{^rspec \./spec}).first(3).each { |l| puts "   #{l.strip}" }
+
+  if status.success?
+    puts "   INERTE — mudar a spec não mudou nada. Isto é configuração, não spec-driven."
+    inert << demo[:title]
+  else
+    puts "   A SPEC MANDOU — o comportamento mudou sem uma linha de Ruby."
+  end
+end
+
+restore.call
+
+puts
+puts "=" * 78
+if lib_fingerprint != baseline_lib
+  warn "ATENÇÃO: arquivos de lib/ foram alterados durante a demonstração."
+  warn "A demonstração perde o valor — todo o argumento é que só a spec muda."
+  exit 2
+end
+puts "Verificado: nenhum arquivo de harness/lib/**.rb foi alterado (hash idêntico)."
+
+if inert.empty?
+  puts "Todas as #{demos.size} demonstrações mudaram o comportamento a partir da spec."
+  puts "=" * 78
+  exit 0
+end
+
+puts
+warn "#{inert.size} demonstração(ões) INERTE(S):"
+inert.each { warn "  - #{_1}" }
+warn ""
+warn "Spec que pode mudar sem o comportamento mudar não é fonte da verdade."
+puts "=" * 78
+exit 1

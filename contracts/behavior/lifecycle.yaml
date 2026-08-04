@@ -1,0 +1,130 @@
+# Máquina de estados do ciclo de vida do entregador.
+#
+# POR QUE ESTE ARQUIVO EXISTE
+#
+# Antes dele, as transições válidas não estavam especificadas em lugar nenhum.
+# O schema declarava o conjunto de status; nada dizia que
+# `offboarded -> active` é inválido. A regra existia apenas na cabeça de quem
+# escreveu o Portal.
+#
+# É também o arquivo que torna honesta a afirmação de spec-driven development
+# deste SDD: até aqui, apenas enums eram derivados de contrato — 1,7% do
+# código. Comportamento vivia só em Ruby.
+#
+# CONSUMIDO POR
+#   harness/bin/generate  -> constantes e tabela de transições
+#   Outbox                -> roteamento de canal por tipo de evento
+#   specs                 -> casos de transição inválida
+
+version: 1
+
+states:
+  pending_approval:
+    description: Cadastro criado, aguardando aprovação no Portal.
+    operational: false
+    initial: true
+
+  active:
+    description: Aprovado e apto a operar, segundo o Portal.
+    operational: true
+
+  inactive:
+    description: Fora de operação por decisão própria ou inatividade.
+    operational: false
+
+  blocked:
+    description: Bloqueio de segurança. Prioridade operacional máxima.
+    operational: false
+
+  offboarded:
+    description: Desligamento definitivo. Estado terminal.
+    operational: false
+    terminal: true
+
+# Transições permitidas. Qualquer par ausente desta lista é inválido, e o
+# consumidor o registra como anomalia — não como erro fatal, porque a fonte da
+# verdade é o Portal: se ele afirma um estado, a projeção o reflete. O que
+# não se pode é aplicar em silêncio algo que a máquina de estados não prevê.
+transitions:
+  - from: pending_approval
+    to: active
+    reasons: [approval_granted]
+    channel: fast   # a ativação é o caso que o plano de DR precisa priorizar
+
+  - from: pending_approval
+    to: offboarded
+    reasons: [offboarding, background_check_failed]
+    channel: fast
+
+  - from: active
+    to: inactive
+    reasons: [driver_requested, inactivity]
+    channel: fast
+
+  - from: active
+    to: blocked
+    reasons: [security_block, fraud_suspicion, document_expired, background_check_failed]
+    channel: fast
+
+  - from: active
+    to: offboarded
+    reasons: [offboarding, approval_revoked]
+    channel: fast
+
+  - from: inactive
+    to: active
+    reasons: [approval_granted, driver_requested]
+    channel: fast
+
+  - from: inactive
+    to: blocked
+    reasons: [security_block, fraud_suspicion, document_expired]
+    channel: fast
+
+  - from: inactive
+    to: offboarded
+    reasons: [offboarding, inactivity]
+    channel: fast
+
+  - from: blocked
+    to: active
+    reasons: [approval_granted]
+    channel: fast
+
+  - from: blocked
+    to: inactive
+    reasons: [driver_requested]
+    channel: fast
+
+  - from: blocked
+    to: offboarded
+    reasons: [offboarding, approval_revoked]
+    channel: fast
+
+# Roteamento de canal por tipo de evento (ADR-005).
+#
+# A pergunta que decide não é volume: se este evento ficar duas horas atrás de
+# um backlog, alguém é prejudicado de forma irreversível naquele dia?
+channels:
+  fast:
+    topic: drivers.status.v1
+    events: [driver.status_changed]
+    rationale: >-
+      Transições de status são baixo volume e altíssima criticidade. Após uma
+      indisponibilidade longa, a ativação de um entregador não pode ficar atrás
+      de horas de atualização de perfil.
+
+  bulk:
+    topic: drivers.profile.v1
+    events: [driver.created, driver.updated]
+    rationale: >-
+      Criação e alteração de perfil são o grosso do volume e toleram atraso.
+
+  snapshot:
+    topic: drivers.snapshot.v1
+    events: [driver.created, driver.updated, driver.status_changed]
+    compacted: true
+    rationale: >-
+      Todo evento é publicado aqui também, com a mesma chave. A compaction
+      retém o último estado por entregador, o que permite bootstrap de
+      consumidor novo sem tocar o banco do Portal (ADR-009).

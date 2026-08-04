@@ -203,3 +203,9 @@ jobs:
       - name: Roteiro de sabotagem — toda violação precisa ser barrada
         working-directory: harness
         run: bin/sabotage
+      # Prova que a especificação é autoridade, não configuração: altera só o
+      # YAML e verifica que o comportamento muda, com hash confirmando que
+      # nenhum arquivo de lib/ foi tocado.
+      - name: A especificação manda
+        working-directory: harness
+        run: bin/spec_drives
