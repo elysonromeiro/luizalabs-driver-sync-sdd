@@ -72,6 +72,14 @@ rules:
     when: { lte: 0 }
     why: Raio zero não é "sem limite" — é ausência de área de atuação.
 
+  - id: capacity_below_minimum
+    field: vehicle.cargo_capacity_kg
+    when: { lt: 5 }
+    why: >-
+      Veículo com menos de 5 kg de capacidade não comporta o menor pedido da
+      operação. Aceitá-lo produz entregador que recebe oferta e recusa todas,
+      o que degrada a métrica de aceitação e a experiência de quem pediu.
+
   - id: vehicle_not_allowed
     field: vehicle.type
     when:

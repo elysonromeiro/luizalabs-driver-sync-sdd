@@ -45,7 +45,7 @@ source_version nunca decresce             monotonicidade
 N réplicas convergem                      convergência
 ```
 
-**89 invariantes**, em `harness/spec/properties/` e `harness/spec/concurrency/`.
+**91 invariantes**, em `harness/spec/properties/` e `harness/spec/concurrency/`.
 
 O gerador e o encolhedor são próprios, sem gem externa. A razão é encolhimento, não dependências: bibliotecas genéricas minimizam bem valores escalares e mal sequências de eventos de domínio — o contraexemplo que produzem costuma violar invariantes da fonte e não diagnostica nada.
 

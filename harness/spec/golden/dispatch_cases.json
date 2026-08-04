@@ -201,6 +201,36 @@
         "eligible": true,
         "reasons": []
       }
+    },
+    {
+      "name": "capacidade abaixo do mínimo operacional bloqueia",
+      "why": "Veículo que não comporta o menor pedido gera entregador que recusa todas as ofertas. Congelado com fronteira explícita, como peso e distância.",
+      "overrides": {
+        "vehicle": {
+          "type": "scooter",
+          "cargo_capacity_kg": 3
+        }
+      },
+      "expected": {
+        "eligible": false,
+        "reasons": [
+          "capacity_below_minimum"
+        ]
+      }
+    },
+    {
+      "name": "capacidade exatamente no mínimo é aceita",
+      "why": "A regra é `< 5`, não `<= 5`: cinco quilos é o mínimo aceito, não o primeiro rejeitado. Mesma disciplina de fronteira aplicada às demais comparações.",
+      "overrides": {
+        "vehicle": {
+          "type": "scooter",
+          "cargo_capacity_kg": 5
+        }
+      },
+      "expected": {
+        "eligible": true,
+        "reasons": []
+      }
     }
   ],
   "dispatch": [

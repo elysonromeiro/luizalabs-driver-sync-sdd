@@ -41,7 +41,7 @@ flowchart LR
 
 ### O que distingue esta entrega
 
-**As invariantes são executáveis.** Idempotência, comutatividade, monotonicidade e convergência não são afirmadas — são propriedades verificadas sobre qualquer sequência gerada. São **89 invariantes** na suíte.
+**As invariantes são executáveis.** Idempotência, comutatividade, monotonicidade e convergência não são afirmadas — são propriedades verificadas sobre qualquer sequência gerada. São **91 invariantes** na suíte.
 
 **Os guardrails foram sabotados de propósito.** `bin/sabotage` executa seis violações deliberadas e mostra a saída real de cada barreira. Qualquer avaliador clona e confere.
 
@@ -72,7 +72,7 @@ bin/mutate                       # 19 mutações
 | Verificação | Resultado |
 |---|---|
 | Suíte completa | **197 exemplos, 0 falhas** |
-| Invariantes | **89** |
+| Invariantes | **91** |
 | Mutações mortas | **19 / 19** |
 | Sabotagens barradas | **19 / 19** |
 | Links da documentação | **180, nenhum quebrado** |
@@ -181,8 +181,8 @@ Cada uma com as alternativas descartadas e o motivo.
 | **Pilar 2** — `driver.updated` | [schema](contracts/schemas/driver.updated.schema.json) | exemplo validado |
 | **Pilar 2** — `driver.status_changed` | [schema](contracts/schemas/driver.status_changed.schema.json) | exemplo validado |
 | **Pilar 3** — Harness no CI | [05-ai-harness](docs/05-ai-harness.md) | seis jobs em duas velocidades |
-| **Pilar 3** — Testes de propriedade | [`spec/properties/`](harness/spec/properties) | 89 invariantes |
-| **Pilar 3** — Impedir alteração de regra de despacho | [golden](harness/spec/golden/dispatch_cases.json) + [CODEOWNERS](.github/CODEOWNERS) | 21 casos congelados |
+| **Pilar 3** — Testes de propriedade | [`spec/properties/`](harness/spec/properties) | 91 invariantes |
+| **Pilar 3** — Impedir alteração de regra de despacho | [golden](harness/spec/golden/dispatch_cases.json) + [CODEOWNERS](.github/CODEOWNERS) | 23 casos congelados |
 | **Pilar 3** — Impedir corrupção de idempotência | propriedades + mutação | sabotagem 2 |
 | **Pilar 3** — Impedir race condition | [02-concorrencia](docs/02-concorrencia.md) | 20 entrelaçamentos enumerados |
 | **Especialista** — Fan-out para N consumidores | [06-especialista](docs/06-especialista.md) | zero queries no bootstrap |
