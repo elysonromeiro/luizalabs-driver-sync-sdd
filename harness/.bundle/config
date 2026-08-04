@@ -1,0 +1,15 @@
+---
+# Instala as gems dentro do repositório, em harness/vendor/bundle.
+#
+# POR QUE ISTO É VERSIONADO
+#
+# Sem este arquivo, `bundle install` num clone limpo tenta escrever no
+# diretório de gems do sistema (/var/lib/gems) e falha com PermissionError
+# para quem não é root.
+#
+# Descoberto testando a experiência real de quem avalia: clonar do zero e
+# rodar. Funcionava na máquina de quem escreveu porque o `.bundle/config`
+# local existia — e estava no .gitignore. O clássico "na minha máquina
+# funciona", com a agravante de que o repositório inteiro se apoia em "clone
+# e rode" como argumento.
+BUNDLE_PATH: "vendor/bundle"

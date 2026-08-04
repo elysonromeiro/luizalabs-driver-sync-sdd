@@ -53,6 +53,8 @@ flowchart LR
 
 ## Como verificar
 
+**Pré-requisitos:** Ruby 3.1 ou superior. Docker apenas para a suíte completa.
+
 ```bash
 git clone https://github.com/elysonromeiro/luizalabs-driver-sync-sdd
 cd luizalabs-driver-sync-sdd/harness && bundle install

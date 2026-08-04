@@ -4,9 +4,7 @@ Desafio_Tecnico_*.pdf
 # Ruby
 *.gem
 *.rbc
-/.bundle/
 /vendor/bundle/
-/harness/.bundle/
 /harness/vendor/
 /harness/tmp/
 /harness/coverage/
@@ -31,7 +29,9 @@ Gemfile.lock.bak
 
 # Harness
 /harness/vendor/
-/harness/.bundle/
+# .bundle/config é versionado de propósito — sem ele, clone limpo não roda.
+/harness/.bundle/*
+!/harness/.bundle/config
 
 # Dependências de validação de contrato (Node)
 /contracts/node_modules/
