@@ -60,29 +60,44 @@ MUTATIONS = [
     to:    ":applied",
     label: "applier reporta :applied mesmo quando nada foi escrito"
   },
+  # As regras de negócio agora vivem em contracts/behavior/. Mutar a SPEC
+  # é o equivalente exato de mutar o código de antes — e prova que o
+  # interpretador realmente obedece o que está escrito lá.
   {
-    file:  "lib/ultra_sync/eligibility_policy.rb",
-    from:  'reasons << :individual_not_allowed unless state["document_type"] == "cnpj"',
-    to:    'reasons << :individual_not_allowed if false',
-    label: "pessoa física deixa de ser rejeitada — o critério que o enunciado cita"
+    file:  "../contracts/behavior/eligibility.yaml",
+    from:  "    when: { not_equals: cnpj }",
+    to:    "    when: { equals: cnpj }",
+    label: "critério invertido: pessoa física passa a ser a única aceita"
   },
   {
-    file:  "lib/ultra_sync/eligibility_policy.rb",
-    from:  'reasons << :not_active unless state["status"] == "active"',
-    to:    'reasons << :not_active unless state["status"] != "active"',
-    label: "elegibilidade invertida no status — bloqueado passa a operar"
+    file:  "../contracts/behavior/eligibility.yaml",
+    from:  "    when: { date_before: today }",
+    to:    "    when: { absent: true }",
+    label: "validade documental deixa de ser verificada"
   },
   {
-    file:  "lib/ultra_sync/dispatch_rules.rb",
-    from:  "offer.weight_kg <= capacity",
-    to:    "offer.weight_kg < capacity",
+    file:  "../contracts/behavior/dispatch.yaml",
+    from:  "    offer_field: weight_kg",
+    to:    "    offer_field: distance_km",
+    label: "regra de capacidade passa a olhar distância — peso deixa de ser checado"
+  },
+  {
+    file:  "lib/ultra_sync/rule_engine.rb",
+    from:  "when :gt          then numeric?(value) && value > argument",
+    to:    "when :gt          then false",
+    label: "predicado gt sempre falso — regras numéricas param de disparar"
+  },
+  {
+    file:  "lib/ultra_sync/rule_engine.rb",
+    from:  "Date.parse(value.to_s) < limit",
+    to:    "Date.parse(value.to_s) <= limit",
+    label: "documento que vence hoje passa a bloquear — entregador fora um dia antes"
+  },
+  {
+    file:  "lib/ultra_sync/rule_engine.rb",
+    from:  "offer_value > driver_value",
+    to:    "offer_value >= driver_value",
     label: "peso exatamente igual à capacidade passa a ser recusado"
-  },
-  {
-    file:  "lib/ultra_sync/dispatch_rules.rb",
-    from:  "offer.distance_km <= radius",
-    to:    "offer.distance_km < radius",
-    label: "distância exatamente igual ao raio passa a ser recusada"
   },
   {
     file:  "lib/ultra_sync/batch_processor.rb",

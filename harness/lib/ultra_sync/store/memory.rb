@@ -19,8 +19,6 @@ module UltraSync
     class Memory
       include MonitorMixin
 
-      Projection = Struct.new(:driver_id, :state, :source_version, keyword_init: true)
-
       attr_reader :query_count
 
       def initialize
@@ -59,7 +57,7 @@ module UltraSync
           @query_count += 1
           current = @projections[driver_id]
           next_version = (current&.source_version || 0) + 1
-          @projections[driver_id] = Projection.new(
+          @projections[driver_id] = UltraSync::Projection.new(
             driver_id: driver_id, state: state, source_version: next_version
           )
           next_version
@@ -78,7 +76,7 @@ module UltraSync
           current = @projections[driver_id]
           return 0 if current && current.source_version >= source_version
 
-          @projections[driver_id] = Projection.new(
+          @projections[driver_id] = UltraSync::Projection.new(
             driver_id: driver_id, state: state, source_version: source_version
           )
           1
@@ -97,7 +95,7 @@ module UltraSync
             current = @projections[row[:driver_id]]
             next if current && current.source_version >= row[:source_version]
 
-            @projections[row[:driver_id]] = Projection.new(
+            @projections[row[:driver_id]] = UltraSync::Projection.new(
               driver_id:      row[:driver_id],
               state:          row[:state],
               source_version: row[:source_version]
@@ -133,7 +131,7 @@ module UltraSync
       def unsafe_write(driver_id:, state:, source_version:)
         synchronize do
           @query_count += 1
-          @projections[driver_id] = Projection.new(
+          @projections[driver_id] = UltraSync::Projection.new(
             driver_id: driver_id, state: state, source_version: source_version
           )
           1

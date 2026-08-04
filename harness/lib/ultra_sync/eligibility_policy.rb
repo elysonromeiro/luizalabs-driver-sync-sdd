@@ -5,71 +5,56 @@ require "date"
 module UltraSync
   # Critérios de elegibilidade DA ULTRA-RÁPIDA.
   #
-  # Esta classe é a razão de a projeção existir separada da política. O Portal
-  # é a fonte da verdade sobre o entregador; a Ultra-rápida decide o que fazer
-  # com essa verdade, e seus critérios são mais restritivos — o Portal aceita
-  # pessoa física, aqui não.
+  # As regras NÃO estão neste arquivo. Elas vivem em
+  # `contracts/behavior/eligibility.yaml`, e esta classe as interpreta.
   #
-  # Consequência prática: mudar uma regra abaixo não exige re-sincronizar nada.
-  # A projeção guarda o que o Portal disse; a decisão é reavaliada localmente.
+  # POR QUE ASSIM
   #
-  # Consequência de segurança (docs/04-seguranca.md): um evento forjado que
-  # declare status "active" não basta. A política reavalia a partir do estado
-  # projetado, então comprometer a fonte não é suficiente para comprometer a
-  # decisão.
+  # O SDD afirma desde o início que a especificação é a fonte da verdade e o
+  # código é derivado dela. Antes disso valer para comportamento, a afirmação
+  # cobria apenas enums — 1,7% do código. As regras que o enunciado cita
+  # nominalmente ("critérios de elegibilidade mais restritivos do que os do
+  # Portal") viviam em noventa linhas de Ruby que nenhum agente conseguiria
+  # derivar de contrato nenhum.
+  #
+  # Agora um agente que precise mudar um critério edita YAML. O Ruby não sabe
+  # quais são as regras — apenas como avaliá-las e em que ordem reportá-las.
+  #
+  # O que permanece decisão de código, e não de dados:
+  #   - a ausência de curto-circuito (todas as regras são avaliadas)
+  #   - a ordenação estável dos motivos
+  #
+  # As duas são propriedades da AVALIAÇÃO, não das regras, e movê-las para o
+  # YAML seria transformar configuração em programa.
   #
   # ATENÇÃO — path protegido. Ver docs/05-ai-harness.md.
   class EligibilityPolicy
+    SPEC_PATH = File.expand_path("../../../contracts/behavior/eligibility.yaml", __dir__)
+
     Result = Struct.new(:eligible, :reasons, keyword_init: true) do
       def eligible? = eligible
       def to_s = eligible? ? "elegível" : "não elegível (#{reasons.join(', ')})"
     end
 
-    # Motivos são códigos estáveis, não frases. Eles entram nos casos golden e
-    # em métrica — texto livre mudaria a cada refatoração e quebraria os dois.
-    REASONS = %i[
-      not_active
-      individual_not_allowed
-      background_check_not_approved
-      documents_expired
-      no_segments
-      invalid_delivery_radius
-      vehicle_not_allowed
-    ].freeze
+    class << self
+      def spec = @spec ||= RuleEngine.load(SPEC_PATH)
 
-    # A Ultra-rápida não despacha a pé nem de bicicleta: o modelo de operação
-    # pressupõe deslocamento motorizado dentro do raio declarado.
-    ALLOWED_VEHICLE_TYPES = %w[scooter motorcycle car van].freeze
+      # Motivos possíveis, derivados da spec. Nada aqui é redigitado.
+      def reasons = @reasons ||= spec.fetch("rules").map { _1.fetch("id").to_sym }.freeze
+    end
 
-    def initialize(today: Date.today)
-      @today = today
+    def initialize(today: Time.now.utc.to_date, spec: self.class.spec)
+      @spec   = spec
+      @engine = RuleEngine.new(today: today)
     end
 
     def evaluate(state)
-      reasons = []
-
-      reasons << :not_active unless state["status"] == "active"
-
-      # O critério que o enunciado cita nominalmente: o Portal permite pessoa
-      # física, a Ultra-rápida não. Decidido com `document_type`, que é
-      # classificação e não dado pessoal — por isso trafega no evento
-      # enquanto o número em si fica atrás de API autorizada (ADR-007).
-      reasons << :individual_not_allowed unless state["document_type"] == "cnpj"
-
-      compliance = state["compliance"] || {}
-      reasons << :background_check_not_approved unless compliance["background_check"] == "approved"
-
-      valid_until = compliance["documents_valid_until"]
-      reasons << :documents_expired if valid_until && Date.parse(valid_until) < @today
-
-      segments = state["segments"] || []
-      reasons << :no_segments if segments.empty?
-
-      radius = state["delivery_radius_km"]
-      reasons << :invalid_delivery_radius unless radius.is_a?(Numeric) && radius.positive?
-
-      vehicle_type = state.dig("vehicle", "type")
-      reasons << :vehicle_not_allowed unless ALLOWED_VEHICLE_TYPES.include?(vehicle_type)
+      # Sem curto-circuito: todas as regras são avaliadas para que a resposta
+      # liste tudo o que impede. Corrigir um problema por vez é caro para o
+      # entregador e para o suporte.
+      reasons = @spec.fetch("rules")
+                     .select { |rule| @engine.violated?(rule, state) }
+                     .map { |rule| rule.fetch("id").to_sym }
 
       Result.new(eligible: reasons.empty?, reasons: reasons.sort)
     end
