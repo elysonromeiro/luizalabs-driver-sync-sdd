@@ -135,3 +135,51 @@ RSpec.describe "Reconciliação: paridade entre Ruby e SQL", :pg, :invariant do
     end
   end
 end
+
+# Achado do terceiro ciclo de revisão independente.
+#
+# O ADR-010 condena varredura da base. Até este ciclo, o repositório fazia
+# exatamente isso do lado do CONSUMIDOR: o Portal tinha `checksum_sql`, e o
+# consumidor só tinha a versão Ruby, que recebe um array — ou seja, um
+# `SELECT *` em 300 mil linhas, durante uma recuperação.
+#
+# Assimetria pura: o lado da fonte foi otimizado e o do consumidor ficou
+# fazendo o que o próprio documento proíbe.
+RSpec.describe "Reconciliação: os DOIS lados agregam no banco", :pg, :invariant do
+  let(:store) { UltraSync.postgres_store! }
+
+  before { store.reset! }
+  after  { store.close }
+
+  def populate(count, rng: Random.new(11))
+    Array.new(count) do
+      id = Factories.uuid(rng)
+      v  = rng.rand(1..500)
+      store.conditional_upsert(driver_id: id, state: { "v" => v }, source_version: v)
+      UltraSync::Projection.new(driver_id: id, state: {}, source_version: v)
+    end
+  end
+
+  it "o consumidor calcula checksums sem carregar a projeção em memória" do
+    projections = populate(400)
+
+    store.reset_query_count!
+    from_db = store.checksums(buckets: 64)
+
+    aggregate_failures do
+      # Uma query agregada, não uma varredura.
+      expect(store.query_count).to eq(1)
+
+      # E o resultado bate com o cálculo em Ruby, que é o que o adapter em
+      # memória usa. Se divergissem, a reconciliação acusaria drift onde não há.
+      expect(from_db).to eq(UltraSync::Reconciliation.checksums(projections, buckets: 64))
+    end
+  end
+
+  it "`all` tem limite — percorrer tudo é keyset, não SELECT sem teto" do
+    populate(50)
+
+    expect(store.all(limit: 10).size).to eq(10)
+    expect(store.all.size).to eq(50)
+  end
+end

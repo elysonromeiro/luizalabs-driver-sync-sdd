@@ -174,6 +174,26 @@ module UltraSync
         SQL
       end
 
+      # Checksums por faixa, agregados NO BANCO.
+      #
+      # O ADR-010 condena varredura, e até o terceiro ciclo de revisão o
+      # repositório fazia exatamente isso do lado do consumidor: o Portal
+      # tinha `Reconciliation.checksum_sql`, e o consumidor só tinha a versão
+      # Ruby, que recebe um array. Para 300 mil entregadores isso é um
+      # `SELECT *` na projeção — durante uma recuperação, que é o único
+      # momento em que este caminho é usado.
+      #
+      # Assimetria pura: otimizei o lado da fonte e deixei o do consumidor
+      # fazendo o que o documento proíbe. A mesma expressão SQL serve aos
+      # dois, porque `checksum_sql` já é parametrizada por tabela.
+      def checksums(buckets: 1024)
+        exec(Reconciliation.checksum_sql(buckets: buckets)).to_h do |row|
+          [row["bucket"].to_i,
+           { count: row["driver_count"].to_i,
+             checksum: Reconciliation.canonical(row["checksum"].to_i) }]
+        end
+      end
+
       def fetch(driver_id)
         row = exec_params(
           "SELECT driver_id, state, source_version FROM driver_projections WHERE driver_id = $1",
@@ -188,8 +208,17 @@ module UltraSync
         )
       end
 
-      def all
-        exec("SELECT driver_id, state, source_version FROM driver_projections").map do |row|
+      # LIMIT explícito e obrigatório.
+      #
+      # Sem ele, `all` carrega a tabela inteira em memória Ruby — e com 300 mil
+      # entregadores esse é o tipo de chamada que derruba o consumidor no pior
+      # momento. Quem precisa percorrer tudo usa keyset pagination
+      # (`Reconciliation.keyset_page_sql`); quem precisa de agregado usa
+      # `checksums`, que agrega no banco.
+      #
+      # O default existe para os testes, não para produção.
+      def all(limit: 10_000)
+        exec("SELECT driver_id, state, source_version FROM driver_projections LIMIT #{limit.to_i}").map do |row|
           UltraSync::Projection.new(
             driver_id:      row["driver_id"],
             state:          JSON.parse(row["state"]),
