@@ -411,12 +411,17 @@
   },
   {
     "file": "./spec/unit/outbox_spec.rb",
+    "name": "UltraSync::Outbox classificação de canal (ADR-005) a máquina de estados declara quais transições são válidas",
+    "pending": false
+  },
+  {
+    "file": "./spec/unit/outbox_spec.rb",
     "name": "UltraSync::Outbox classificação de canal (ADR-005) criação e alteração de perfil vão para a bulk-lane",
     "pending": false
   },
   {
     "file": "./spec/unit/outbox_spec.rb",
-    "name": "UltraSync::Outbox classificação de canal (ADR-005) todo tipo do ciclo de vida tem canal declarado",
+    "name": "UltraSync::Outbox classificação de canal (ADR-005) todo tipo do ciclo de vida tem canal declarado na spec",
     "pending": false
   },
   {

@@ -1,8 +1,20 @@
 # Contratos
 
-Esta pasta é a **fonte da verdade** do sistema. O código de aplicação é derivado dela, não paralelo a ela: os structs de evento do harness são gerados por `bin/generate` a partir dos schemas, e o CI roda `bin/generate --check` para falhar se alguém — pessoa ou agente de IA — editou o código sem passar pelo contrato.
+Esta pasta é a fonte da verdade **da interface e das regras de negócio**. O que isso significa exatamente, e onde para, está em [`behavior/README.md`](behavior/README.md) — vale ler, porque a afirmação genérica "a spec é a fonte da verdade" não sobrevive à pergunta *"me mostre o applier sendo derivado do schema"*.
 
-Essa inversão é o que dá sentido à expressão *spec-driven development* neste repositório. O contrato não documenta o que o código faz; o código implementa o que o contrato define.
+O resumo:
+
+| Camada | Onde vive a verdade | Enforcement |
+|---|---|---|
+| **Interface** — eventos e APIs | `schemas/`, `asyncapi.yaml`, `openapi.yaml` | `bin/generate --check`, validação de payload |
+| **Regras de negócio** — elegibilidade, despacho, ciclo de vida | [`behavior/`](behavior/README.md) | Interpretadas em runtime; `bin/spec_drives` demonstra |
+| **Mecânica** — transação, SQL, laço de consumo | Código, com decisão registrada em ADR | Testes de invariante |
+
+A fronteira é deliberada: **vai para spec o que é decisão de negócio; fica em código o que é mecânica.** Especificar controle de transação em YAML produziria uma linguagem de programação mal escrita.
+
+```bash
+cd harness && bin/spec_drives   # a spec manda, em um comando
+```
 
 ## Layout
 

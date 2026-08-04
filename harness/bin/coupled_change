@@ -38,6 +38,10 @@ PROTECTED = %w[
   harness/lib/ultra_sync/outbox.rb
   harness/lib/ultra_sync/schema_validator.rb
   harness/lib/ultra_sync/reconciliation.rb
+  harness/lib/ultra_sync/rule_engine.rb
+  contracts/behavior/eligibility.yaml
+  contracts/behavior/dispatch.yaml
+  contracts/behavior/lifecycle.yaml
 ].freeze
 
 if ARGV.include?("--list")

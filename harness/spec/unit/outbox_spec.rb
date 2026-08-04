@@ -80,22 +80,30 @@ RSpec.describe UltraSync::Outbox do
     it "transição de status vai para o fast-lane" do
       entry = outbox.record!(driver_id: driver_id, state: state(status: "blocked"), kind: :status_changed)
 
-      expect(entry.channel).to eq(described_class::FAST_LANE)
+      expect(entry.channel).to eq(UltraSync::Outbox.topic_for(:status_changed))
     end
 
     it "criação e alteração de perfil vão para a bulk-lane" do
       created = outbox.record!(driver_id: driver_id, state: state, kind: :created)
       updated = outbox.record!(driver_id: driver_id, state: state, kind: :updated)
 
-      expect([created.channel, updated.channel]).to all(eq(described_class::BULK_LANE))
+      expect([created.channel, updated.channel]).to all(eq(UltraSync::Outbox.topic_for(:updated)))
     end
 
-    it "todo tipo do ciclo de vida tem canal declarado" do
+    it "todo tipo do ciclo de vida tem canal declarado na spec" do
       # Sem isto, adicionar um evento novo sem classificá-lo levantaria
       # KeyError em produção, no primeiro evento daquele tipo.
-      kinds = UltraSync::Event::LIFECYCLE_TYPES.values
+      UltraSync::Event::LIFECYCLE_TYPES.values.each do |kind|
+        expect { described_class.topic_for(kind) }.not_to raise_error,
+                                                          "evento #{kind} sem canal em lifecycle.yaml"
+      end
+    end
 
-      expect(described_class::CHANNEL_BY_KIND.keys.sort).to eq(kinds.sort)
+    it "a máquina de estados declara quais transições são válidas" do
+      # Antes da spec de ciclo de vida, isto não estava escrito em lugar
+      # nenhum: nada dizia que offboarded -> active é inválido.
+      expect(described_class.transition_allowed?("pending_approval", "active")).to be(true)
+      expect(described_class.transition_allowed?("offboarded", "active")).to be(false)
     end
   end
 

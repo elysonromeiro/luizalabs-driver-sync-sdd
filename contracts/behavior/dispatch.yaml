@@ -1,0 +1,45 @@
+# Regras de despacho como especificação executável.
+#
+# `DispatchRules` interpreta este arquivo. Ver eligibility.yaml para a
+# explicação do formato e dos predicados — são os mesmos.
+#
+# A diferença é que aqui o predicado compara um campo da OFERTA contra um
+# campo do ENTREGADOR, e não contra uma constante.
+
+version: 1
+
+# Pré-requisito, avaliado antes de qualquer regra de encaixe.
+#
+# Um entregador inelegível não recebe oferta nenhuma, por melhor que seja o
+# encaixe operacional. Separar isto das demais regras não é organização — é o
+# que impede que uma refatoração transforme elegibilidade numa condição entre
+# outras, passível de ser compensada.
+prerequisite:
+  id: driver_not_eligible
+  source: eligibility
+  why: >-
+    Elegibilidade é pré-requisito, não uma regra entre outras.
+
+rules:
+  - id: segment_not_served
+    offer_field: segment
+    driver_field: segments
+    when: { not_included_in_driver_field: true }
+    why: Entregador habilitado apenas em goods não recebe corrida de food.
+
+  - id: exceeds_cargo_capacity
+    offer_field: weight_kg
+    driver_field: vehicle.cargo_capacity_kg
+    when: { greater_than_driver_field: true }
+    why: >-
+      Capacidade vem do veículo declarado no cadastro. A comparação é `<=`:
+      peso exatamente igual à capacidade é ACEITO. Fronteira congelada em
+      spec/golden — é onde uma refatoração troca o operador sem ninguém notar.
+
+  - id: outside_delivery_radius
+    offer_field: distance_km
+    driver_field: delivery_radius_km
+    when: { greater_than_driver_field: true }
+    why: >-
+      Raio declarado pelo entregador e respeitado pelo despacho. Mesma
+      fronteira `<=` do peso, congelada pelo mesmo motivo.

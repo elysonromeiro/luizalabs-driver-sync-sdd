@@ -41,9 +41,11 @@ flowchart LR
 
 ### O que distingue esta entrega
 
-**As invariantes são executáveis.** Idempotência, comutatividade, monotonicidade e convergência não são afirmadas — são propriedades verificadas sobre qualquer sequência gerada. São **88 invariantes** na suíte.
+**As invariantes são executáveis.** Idempotência, comutatividade, monotonicidade e convergência não são afirmadas — são propriedades verificadas sobre qualquer sequência gerada. São **89 invariantes** na suíte.
 
 **Os guardrails foram sabotados de propósito.** `bin/sabotage` executa seis violações deliberadas e mostra a saída real de cada barreira. Qualquer avaliador clona e confere.
+
+**A especificação manda, e dá para conferir.** Elegibilidade, despacho e ciclo de vida são interpretados de [`contracts/behavior/`](contracts/behavior/README.md) — as classes Ruby não contêm nenhuma regra. `bin/spec_drives` altera só a spec e mostra o comportamento mudando, verificando por hash que nenhum arquivo de `lib/` foi tocado.
 
 **Os números vieram de execução, não de estimativa.** Cada afirmação quantitativa deste documento foi medida contra Postgres 16 e Kafka reais.
 
@@ -70,7 +72,7 @@ bin/mutate                       # 19 mutações
 | Verificação | Resultado |
 |---|---|
 | Suíte completa | **197 exemplos, 0 falhas** |
-| Invariantes | **88** |
+| Invariantes | **89** |
 | Mutações mortas | **19 / 19** |
 | Sabotagens barradas | **19 / 19** |
 | Links da documentação | **180, nenhum quebrado** |
@@ -179,7 +181,7 @@ Cada uma com as alternativas descartadas e o motivo.
 | **Pilar 2** — `driver.updated` | [schema](contracts/schemas/driver.updated.schema.json) | exemplo validado |
 | **Pilar 2** — `driver.status_changed` | [schema](contracts/schemas/driver.status_changed.schema.json) | exemplo validado |
 | **Pilar 3** — Harness no CI | [05-ai-harness](docs/05-ai-harness.md) | seis jobs em duas velocidades |
-| **Pilar 3** — Testes de propriedade | [`spec/properties/`](harness/spec/properties) | 88 invariantes |
+| **Pilar 3** — Testes de propriedade | [`spec/properties/`](harness/spec/properties) | 89 invariantes |
 | **Pilar 3** — Impedir alteração de regra de despacho | [golden](harness/spec/golden/dispatch_cases.json) + [CODEOWNERS](.github/CODEOWNERS) | 21 casos congelados |
 | **Pilar 3** — Impedir corrupção de idempotência | propriedades + mutação | sabotagem 2 |
 | **Pilar 3** — Impedir race condition | [02-concorrencia](docs/02-concorrencia.md) | 20 entrelaçamentos enumerados |

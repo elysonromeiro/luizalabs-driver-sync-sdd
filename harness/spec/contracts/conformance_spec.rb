@@ -190,8 +190,16 @@ RSpec.describe "Contratos: conformidade" do
     # conhece. Se alguém adicionar um tipo à lista da política sem adicioná-lo
     # ao contrato, este exemplo pega.
     it "os veículos aceitos pela política existem no contrato" do
-      unknown = UltraSync::EligibilityPolicy::ALLOWED_VEHICLE_TYPES -
-                UltraSync::Generated::DriverState::VEHICLE_TYPES
+      # A lista saiu do Ruby e virou spec: contracts/behavior/eligibility.yaml.
+      # Este exemplo continua valendo — agora garante que a regra declarada em
+      # YAML não cita veículo que o contrato de dados desconhece, que é a
+      # divergência que duas specs separadas permitiriam.
+      allowed = UltraSync::EligibilityPolicy.spec
+                                            .fetch("rules")
+                                            .find { _1["id"] == "vehicle_not_allowed" }
+                                            .dig("when", "not_in")
+
+      unknown = allowed - UltraSync::Generated::DriverState::VEHICLE_TYPES
 
       expect(unknown).to be_empty,
                          "a política aceita veículos que o contrato não conhece: #{unknown.inspect}"

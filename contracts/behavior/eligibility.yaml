@@ -1,0 +1,81 @@
+# Critérios de elegibilidade DA ULTRA-RÁPIDA, como especificação executável.
+#
+# POR QUE ESTE ARQUIVO EXISTE
+#
+# O enunciado cita este ponto nominalmente: "A Ultra-rápida possui critérios de
+# elegibilidade mais restritivos do que os critérios gerais do Portal".
+#
+# Até aqui essas regras viviam em 90 linhas de Ruby. O SDD afirmava que "a
+# especificação é a fonte da verdade e o código é derivado dela", e isso valia
+# só para enums — 1,7% do código. Este arquivo torna a afirmação verdadeira
+# para a parte que importa: o comportamento.
+#
+# `EligibilityPolicy` INTERPRETA este arquivo. Não há regra em Ruby: mudar um
+# critério é mudar YAML, e o mesmo conjunto de casos golden continua guardando.
+#
+# COMO UM AGENTE USA ISTO
+#   1. Cada regra tem `when`, um predicado declarativo sobre o estado.
+#   2. Se o predicado é verdadeiro, o motivo entra na lista e o entregador é
+#      inelegível.
+#   3. NÃO há curto-circuito: todas as regras são avaliadas, para que a
+#      resposta liste tudo o que impede — corrigir um problema por vez é caro.
+#
+# PREDICADOS SUPORTADOS
+#   equals / not_equals        compara o valor do campo
+#   in / not_in                pertinência em lista
+#   empty                      array ou string vazios, ou ausente
+#   lt / lte / gt / gte        comparação numérica
+#   date_before                data do campo é anterior à referência
+#   absent                     campo ausente ou nulo
+
+version: 1
+
+# Avaliadas na ordem em que aparecem, e todas são avaliadas.
+rules:
+  - id: not_active
+    field: status
+    when: { not_equals: active }
+    why: >-
+      Somente entregador ativo opera. Bloqueio de segurança precisa refletir
+      imediatamente na decisão operacional, e é esta regra que o faz.
+
+  - id: individual_not_allowed
+    field: document_type
+    when: { not_equals: cnpj }
+    why: >-
+      O critério que o enunciado cita nominalmente: o Portal permite pessoa
+      física, a Ultra-rápida não. Decidido por `document_type`, que é
+      classificação e não dado pessoal — por isso trafega no evento enquanto o
+      número fica atrás de API autorizada (ADR-007).
+
+  - id: background_check_not_approved
+    field: compliance.background_check
+    when: { not_equals: approved }
+    why: Critério de compliance, independente do status operacional.
+
+  - id: documents_expired
+    field: compliance.documents_valid_until
+    when: { date_before: today }
+    why: >-
+      Validade documental avaliada contra a data corrente em UTC, não contra o
+      instante do evento. A comparação é estrita: documento válido ATÉ hoje
+      vale hoje. Campo ausente não bloqueia — significa que não há documento
+      com validade aplicável, não que está vencido.
+
+  - id: no_segments
+    field: segments
+    when: { empty: true }
+    why: Habilitado em nenhum segmento significa que não há oferta que lhe caiba.
+
+  - id: invalid_delivery_radius
+    field: delivery_radius_km
+    when: { lte: 0 }
+    why: Raio zero não é "sem limite" — é ausência de área de atuação.
+
+  - id: vehicle_not_allowed
+    field: vehicle.type
+    when:
+      not_in: [scooter, motorcycle, car, van]
+    why: >-
+      O modelo de operação da Ultra-rápida pressupõe deslocamento motorizado
+      dentro do raio declarado. A pé e bicicleta ficam de fora.

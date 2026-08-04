@@ -1,0 +1,76 @@
+# Como um evento é aplicado à projeção.
+#
+# POR QUE ISTO É SPEC E NÃO CÓDIGO
+#
+# A decisão que importa aqui não é *o que* cada verificação faz — é a ORDEM
+# delas e o desfecho que cada uma produz. Essas duas coisas são o desenho, e
+# estavam expressas apenas na sequência de linhas de um método Ruby.
+#
+# Colocá-las em spec torna possível verificar que o código obedece, e torna
+# possível a um agente reconstruir o applier sem adivinhar.
+#
+# CONSUMIDO POR
+#   EventApplier  -> ordem das verificações e desfechos
+#   Consumer      -> quais desfechos disparam efeito colateral
+#   specs         -> tabela de decisão
+
+version: 1
+
+outcomes:
+  applied:
+    description: Evento novo; a projeção avançou.
+    advances_projection: true
+  duplicate:
+    description: O par (source, id) já havia sido processado.
+    advances_projection: false
+  stale:
+    description: O `sequence` do evento não é maior que o já projetado.
+    advances_projection: false
+
+# Avaliadas NA ORDEM. A primeira que decide encerra.
+#
+# A ordem é a decisão de desenho. Deduplicação vem antes da comparação de
+# versão porque as duas cobrem coisas diferentes: a primeira reconhece o MESMO
+# fato reentregue, a segunda reconhece um fato MAIS ANTIGO. Um evento
+# reentregue quando a projeção está atrás passaria pela comparação de versão
+# sem problema — caso comum após rebalanceamento com offset não commitado — e
+# dispararia reavaliação de elegibilidade em duplicidade.
+#
+# Inverter esta ordem não quebra nenhum teste de estado final. É por isso que
+# ela precisa estar escrita.
+decisions:
+  - step: claim_event
+    description: >-
+      Reivindica (source, id) com escrita condicional. Zero linhas afetadas
+      significa que outro processo já reivindicou.
+    on_failure: duplicate
+
+  - step: conditional_upsert
+    description: >-
+      UPDATE ... WHERE source_version < :sequence. Zero linhas afetadas
+      significa evento stale.
+    on_failure: stale
+    on_success: applied
+
+# A comparação de versão é ESTRITA.
+#
+# Com estado completo, reaplicar um evento de versão igual produz projeção
+# idêntica — a diferença entre `<` e `<=` é invisível no estado final. Ela
+# aparece no efeito colateral abaixo.
+version_comparison:
+  operator: "<"
+  why: >-
+    Com `<=`, uma reentrega gera uma escrita a mais, que dispara reavaliação de
+    elegibilidade, que pode emitir oferta duplicada ao motor de despacho. O
+    estado converge; o comportamento observável, não.
+
+# Efeitos colaterais de uma escrita EFETIVA.
+#
+# É este bloco que justifica o applier devolver desfecho em vez de booleano:
+# sem ele, nenhum teste consegue distinguir "aplicou" de "ignorou
+# corretamente", e a suíte aceita silenciosamente a troca de `<` por `<=`.
+side_effects:
+  reevaluate_eligibility:
+    on: [applied]
+    why: >-
+      Reavaliar em :duplicate ou :stale emitiria oferta repetida ao despacho.
